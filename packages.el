@@ -49,3 +49,27 @@
 ;; (unpin! t)
 
 (package! tldr)
+(package! magit-delta)
+(package! magit-imerge)
+(package! gptel-quick)
+(package! evil-matchit)
+(package! mcp)
+(package! gptel :pin "d0c392bbb0a1f7775d3a1e98220f4bdc043ab63b") ; 0.9.9.3
+(package! gptel-prompts :recipe
+  (:host github :repo "jwiegley/gptel-prompts" :branch "main"))
+(package! templatel :recipe
+  (:host github :repo "emacs-love/templatel" :branch "main"))
+(package! lsp-tailwindcss :recipe
+  (:host github :repo "merrickluo/lsp-tailwindcss" :branch "master"))
+
+(package! expreg :recipe
+  (:host github :repo "casouri/expreg" :branch "master"))
+
+(package! org-download)
+(package! devdocs)
+(package! ast-grep :recipe (:host github :repo "SunskyXH/ast-grep.el"))
+(package! evil-textobj-tree-sitter :recipe
+  (:host github :repo "meain/evil-textobj-tree-sitter" :branch "master" :files (:defaults "queries")))
+
+(package! claude-code-ide
+  :recipe (:host github :repo "manzaltu/claude-code-ide.el"))
