@@ -51,10 +51,13 @@
 (package! tldr)
 (package! magit-delta)
 (package! magit-imerge)
+(package! difftastic :recipe
+  (:host github :repo "pkryger/difftastic.el" :branch "main"))
 (package! gptel-quick)
+(package! gptel-agent)
 (package! evil-matchit)
 (package! mcp)
-(package! gptel :pin "d0c392bbb0a1f7775d3a1e98220f4bdc043ab63b") ; 0.9.9.3
+(package! gptel :pin "b6726490e7de00e4a54b17490c6e09b39adbfab4") ; 0.9.9.3
 (package! gptel-prompts :recipe
   (:host github :repo "jwiegley/gptel-prompts" :branch "main"))
 (package! templatel :recipe

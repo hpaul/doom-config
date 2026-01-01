@@ -21,10 +21,10 @@
 ;; See 'C-h v doom-font' for documentation and more examples of what they
 ;; accept. For example:
 ;;
-(setq doom-font (font-spec :family "FiraCode Nerd Font" :size 18 :weight 'semi-light)
-      doom-variable-pitch-font (font-spec :family "FiraCode Nerd Font" :size 18)
-      doom-symbol-font (font-spec :family "FiraCode Nerd Font")
-      doom-big-font (font-spec :family "JetBrainsMono Nerd Font" :size 24))
+(setq doom-font (font-spec :family "JuliaMono" :size 16 :weight 'semi-light)
+      doom-variable-pitch-font (font-spec :family "JuliaMono" :weight 'light :size 16)
+      doom-symbol-font (font-spec :family "JuliaMono" :weight 'light)
+      doom-big-font (font-spec :family "JuliaMono" :size 24))
 
 (defvar serif-preserve-default-list nil
   "A list holding the faces that preserve the default family and
@@ -284,11 +284,14 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (setq! projectile-project-search-path '("~/apps/finetune/" "~/apps/clipbook/" "~/apps/"))
 
 (after! magit
+  ;; Difftastic
+  (use-package difftastic-bindings
+    :ensure difftastic ;; or nil if you prefer manual installation
+    :config (difftastic-bindings-mode))
   (setq magit-delta-default-dark-theme "Monokai Extended"
         magit-delta-default-light-theme "GitHub"
         magit-delta-hide-plus-minus-markers 't)
   (magit-delta-mode))
-
 
 ;; Easy transpose lines
 (defun move-line-up ()
@@ -399,6 +402,25 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 
 ;; Tell lsp‑mode that a `web-mode` buffer representing an .html.erb
 (add-to-list 'lsp-language-id-configuration '(".*\\.html\\.erb$" . "html"))
+
+;; Ensure ts-ls works with tree-sitter modes
+(after! lsp-mode
+  (add-to-list 'lsp-language-id-configuration '(typescript-ts-mode . "typescript"))
+  (add-to-list 'lsp-language-id-configuration '(tsx-ts-mode . "typescriptreact"))
+  (add-to-list 'lsp-language-id-configuration '(js-ts-mode . "javascript"))
+
+  ;; Explicitly register ts-ls for tree-sitter modes
+  (lsp-register-client
+   (make-lsp-client
+    :new-connection (lsp-stdio-connection '("typescript-language-server" "--stdio"))
+    :activation-fn (lsp-activate-on "typescript" "typescriptreact" "javascript")
+    :priority 0
+    :completion-in-comments? t
+    :server-id 'ts-ls)))
+
+(add-hook 'typescript-ts-mode-hook #'lsp-deferred)
+(add-hook 'tsx-ts-mode-hook #'lsp-deferred)
+(add-hook 'js-ts-mode-hook #'lsp-deferred)
 
 ;; Add useful stuff to `rotate-text' library
 ;; https://github.com/otavioschwanck/doom-emacs-on-rails/blob/master/modules/ruby.el
@@ -574,51 +596,23 @@ if Magit is disabled."
 ;;  Auto‑populate Forge PR title with the last commit subject
 ;; -------------------------------------------------------------------
 (after! forge
-  ;; ---------------------------------------------------------------
-  ;; Helper: obtain the subject line of the most recent commit.
-  ;; ---------------------------------------------------------------
+  ;; Auto-pull forge data when opening magit-status
+  (add-hook 'magit-status-mode-hook #'forge-pull)
+
   (defun my/forge--last-commit-subject ()
-    "Return the *subject* (first line) of the most recent commit on the
-current branch, or nil if it cannot be determined.
+    "Return the subject line of the most recent commit on the current branch."
+    (when-let ((default-directory (magit-toplevel)))
+      (string-trim
+       (shell-command-to-string "git log -1 --pretty=%s"))))
 
-The function tries, in order:
-
-1. `magit-get-last-message' (Magit helper).
-2. A raw `git log` call (fallback when Magit is not loaded or fails)."
-    (or ;; 1. Use the Magit helper if it exists and we are in a repo
-        (when (fboundp 'magit-get-last-message)
-          (let ((msg (magit-get-last-message)))
-            (when (and msg (stringp msg))
-              (car (split-string msg "\n")))))
-        ;; 2. Fallback: run a short Git command ourselves
-        (let* ((git-root (magit-toplevel))   ; nil if not a repo
-               (default-directory (or git-root default-directory)))
-          (when git-root
-            (let ((raw (string-trim
-                        (shell-command-to-string "git log -1 --pretty=%s"))))
-              (unless (string-empty-p raw) raw))))))
-
-  ;; ---------------------------------------------------------------
-  ;; Advice that runs *around* `forge-create-pullreq'.
-  ;; ---------------------------------------------------------------
-  (defun my/forge--populate-pr-title (orig-fun &rest args)
-    "When creating a new Forge PR, pre‑fill the title with the last commit
-subject.
-
-ORIG-FUN is the original `forge-create-pullreq' command."
-    (let ((title (my/forge--last-commit-subject))) ; may be nil
-      ;; Call the original command – it creates the PR buffer and switches to it.
-      (apply orig-fun args)
-      ;; If we managed to obtain a title *and* we are really in a Forge PR
-      ;; buffer, replace the first line with that title.
-      (when (and title
-                 (derived-mode-p 'forge-create-pullreq-mode))
-        (save-excursion
-          (goto-char (point-min))                ; first line = title
+  (defun my/forge--populate-pr-title ()
+    "Auto-fill PR title with the last commit subject if empty or placeholder."
+    (when-let ((title (my/forge--last-commit-subject)))
+      (save-excursion
+        (goto-char (point-min))
+        ;; Replace if the first line is empty or contains only # characters
+        (when (looking-at-p "^[[:space:]#]*$")
           (delete-region (line-beginning-position) (line-end-position))
-          (insert title))))
-    ;; Return whatever the original command returned (usually the buffer).
-    nil)
+          (insert title)))))
 
-  ;; Install the advice
-  (advice-add #'forge-create-pullreq :around #'my/forge--populate-pr-title))
+  (add-hook 'forge-create-pullreq-mode-hook #'my/forge--populate-pr-title))
