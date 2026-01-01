@@ -114,7 +114,7 @@
        (markdown +grip +tree-sitter)          ; writing docs for people to ignore
        (org +pretty)               ; organize your plain life in plain text
        ;;graphviz          ; diagrams for confusing yourself even more
-       (python +cython +lsp +tree-sitter +pyright)            ; beautiful is better than ugly
+       (python +cython +lsp +tree-sitter +pyright +uv)            ; beautiful is better than ugly
        ;;qt                ; the 'cutest' gui framework ever
        (rest +jq)              ; Emacs as a REST client
        (ruby +rails +lsp +tree-sitter)     ; 1.step {|i| p "Ruby is #{i.even? ? 'love' : 'life'}"}
