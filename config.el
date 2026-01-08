@@ -63,7 +63,7 @@
   (when (display-graphic-p)  ;; this is only for graphical emacs
     ;; the serif font familiy and height, save the default attributes
     (let ((serif-fam "Liberation Serif")
-          (serif-height 170)
+          (serif-height 160)
           (default-fam (face-attribute 'default :family))
           (default-height (face-attribute 'default :height)))
       (if (not (bound-and-true-p default-cookie))
@@ -92,6 +92,9 @@
 (add-hook 'Info-mode-hook 'toggle-serif)
 (add-hook 'Man-mode-hook 'toggle-serif)
 (add-hook 'devdocs-mode-hook 'toggle-serif)
+(add-hook 'helpful-mode-hook 'toggle-serif)
+(add-hook 'help-mode-hook 'toggle-serif)
+(add-hook 'lsp-help-mode-hook 'toggle-serif)
 
 ;; If you or Emacs can't find your font, use 'M-x describe-font' to look them
 ;; up, `M-x eval-region' to execute elisp code, and 'M-x doom/reload-font' to
@@ -287,11 +290,7 @@ Works for `evil-window-split' and `evil-window-vsplit'."
   ;; Difftastic
   (use-package difftastic-bindings
     :ensure difftastic ;; or nil if you prefer manual installation
-    :config (difftastic-bindings-mode))
-  (setq magit-delta-default-dark-theme "Monokai Extended"
-        magit-delta-default-light-theme "GitHub"
-        magit-delta-hide-plus-minus-markers 't)
-  (magit-delta-mode))
+    :config (difftastic-bindings-mode)))
 
 ;; Easy transpose lines
 (defun move-line-up ()

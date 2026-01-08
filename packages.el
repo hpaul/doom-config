@@ -49,7 +49,6 @@
 ;; (unpin! t)
 
 (package! tldr)
-(package! magit-delta)
 (package! magit-imerge)
 (package! difftastic :recipe
   (:host github :repo "pkryger/difftastic.el" :branch "main"))
