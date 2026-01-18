@@ -48,30 +48,39 @@
 ;; ...Or *all* packages (NOT RECOMMENDED; will likely break things)
 ;; (unpin! t)
 
+(package! drag-stuff)
+
 (package! tldr)
+
 (package! magit-imerge)
+
 (package! difftastic :recipe
   (:host github :repo "pkryger/difftastic.el" :branch "main"))
+
 (package! gptel-quick)
 (package! gptel-agent)
+
 (package! evil-matchit)
+
 (package! mcp)
-(package! gptel :pin "b6726490e7de00e4a54b17490c6e09b39adbfab4") ; 0.9.9.3
+
 (package! gptel-prompts :recipe
   (:host github :repo "jwiegley/gptel-prompts" :branch "main"))
+
 (package! templatel :recipe
   (:host github :repo "emacs-love/templatel" :branch "main"))
+
 (package! lsp-tailwindcss :recipe
   (:host github :repo "merrickluo/lsp-tailwindcss" :branch "master"))
 
 (package! expreg :recipe
   (:host github :repo "casouri/expreg" :branch "master"))
 
-(package! org-download)
 (package! devdocs)
-(package! ast-grep :recipe (:host github :repo "SunskyXH/ast-grep.el"))
 (package! evil-textobj-tree-sitter :recipe
   (:host github :repo "meain/evil-textobj-tree-sitter" :branch "master" :files (:defaults "queries")))
 
-(package! claude-code-ide
-  :recipe (:host github :repo "manzaltu/claude-code-ide.el"))
+;; (package! claude-code-ide
+;;   :recipe (:host github :repo "manzaltu/claude-code-ide.el"))
+
+(package! eca :recipe (:host github :repo "editor-code-assistant/eca-emacs" :files ("*.el")))

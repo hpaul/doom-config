@@ -517,19 +517,19 @@ prevent eager expansion."
      '(("" . "\\`+?evil-textobj-tree-sitter-function--\\(.*\\)\\(?:.inner\\|.outer\\)") . (nil . "\\1")))))
 
 ;; Claude Code IDE
-(use-package! claude-code-ide
-  :config
-  ;; Set window position and height
-  (setq claude-code-ide-window-side 'bottom
-        claude-code-ide-window-height 30)
+;; (use-package! claude-code-ide
+;;   :config
+;;   ;; Set window position and height
+;;   (setq claude-code-ide-window-side 'bottom
+;;         claude-code-ide-window-height 30)
 
-  ;; Enable Emacs MCP tools
-  (claude-code-ide-emacs-tools-setup))
+;;   ;; Enable Emacs MCP tools
+;;   (claude-code-ide-emacs-tools-setup))
 
-;; Doom leader key binding
-(map! :leader
-      (:prefix ("o" . "open")
-       :desc "Claude Code" "l c" #'claude-code-ide-menu))
+;; ;; Doom leader key binding
+;; (map! :leader
+;;       (:prefix ("o" . "open")
+;;        :desc "Claude Code" "l c" #'claude-code-ide-menu))
 
 
 ;; -------------------------------------------------------------------
