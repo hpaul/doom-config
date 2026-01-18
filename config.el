@@ -21,10 +21,18 @@
 ;; See 'C-h v doom-font' for documentation and more examples of what they
 ;; accept. For example:
 ;;
+
+;; JuliaMono
 (setq doom-font (font-spec :family "JuliaMono" :size 16 :weight 'semi-light)
       doom-variable-pitch-font (font-spec :family "JuliaMono" :weight 'light :size 16)
       doom-symbol-font (font-spec :family "JuliaMono" :weight 'light)
       doom-big-font (font-spec :family "JuliaMono" :size 24))
+
+;; ;; JetBrainsMono Nerd Font
+;; (setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 16 :weight 'semi-light)
+;;       doom-variable-pitch-font (font-spec :family "JetBrainsMono Nerd Font" :weight 'light :size 16)
+;;       doom-symbol-font (font-spec :family "JetBrainsMono Nerd Font" :weight 'light)
+;;       doom-big-font (font-spec :family "JetBrainsMono Nerd Font" :size 24))
 
 (defvar serif-preserve-default-list nil
   "A list holding the faces that preserve the default family and
@@ -224,18 +232,6 @@
   ;; Drag-and-drop to `dired`
   (add-hook 'dired-mode-hook 'org-download-enable))
 
-(defun my/gptel-image-download-setup ()
-  (require 'org-download)
-  (when (derived-mode-p 'org-mode)
-    (with-eval-after-load 'org-download
-      (setq-local org-download-image-dir
-                  (file-name-as-directory (concat (file-name-as-directory temporary-file-directory) "gptel")))
-      (setq-local org-download-heading-lvl nil)
-      )
-    )
-  )
-(add-hook 'gptel-mode-hook #'my/gptel-image-download-setup)
-
 ;; ---------------------------------------------------------------------------
 ;; Focus the newly‑created window after an Evil split / vsplit
 ;; ---------------------------------------------------------------------------
@@ -292,24 +288,13 @@ Works for `evil-window-split' and `evil-window-vsplit'."
     :ensure difftastic ;; or nil if you prefer manual installation
     :config (difftastic-bindings-mode)))
 
-;; Easy transpose lines
-(defun move-line-up ()
-  "Move up the current line."
-  (interactive)
-  (transpose-lines 1)
-  (forward-line -2)
-  (indent-according-to-mode))
-
-(defun move-line-down ()
-  "Move down the current line."
-  (interactive)
-  (forward-line 1)
-  (transpose-lines 1)
-  (forward-line -1)
-  (indent-according-to-mode))
-
-(global-set-key [(control shift down)]  'move-line-down)
-(global-set-key [(control shift up)]  'move-line-up)
+(use-package! drag-stuff
+    :defer t
+    :init
+    (map! "<M-up>"    #'drag-stuff-up
+          "<M-down>"  #'drag-stuff-down
+          "<M-left>"  #'drag-stuff-left
+          "<M-right>" #'drag-stuff-right))
 
 ;; Early on enable breadcrumbs for lsp
 (use-package! lsp-mode
@@ -342,7 +327,6 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 ))
 
 (gptel-make-gemini "Gemini" :key (lambda () (getenv "GEMINI_API_KEY")) :stream t)
-;; (gptel-make-anthropic "Anthropic" :key (lambda () (getenv "ANTHROPIC_API_KEY")) :stream t)
 
 (use-package! templatel :defer t)
 ;; Poet files should be opened as yaml
@@ -359,14 +343,6 @@ Works for `evil-window-split' and `evil-window-vsplit'."
   (gptel-prompts-add-update-watchers)
   (setq! gptel--system-message (alist-get 'base gptel-directives)))
 
-
-;; ;; 1. The buffer name that Aideremacs creates.
-;; (defvar aidermacs-buffer-name "*aidermacs*")
-;; ;; 2. Register a Doom popup rule.
-;; (set-popup-rule! aidermacs-buffer-name        ; match the buffer name
-;;                 :side 'bottom                 ; bottom edge of the frame
-;;                 :size 0.25                    ; ~25 % of the frame height (adjust as you like)
-;;                 :slot -1)                     ; ensures it’s the *last* window on that side
 
 ;; Save last location when entering a file
 (save-place-mode 1)
@@ -390,6 +366,7 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (add-hook 'lsp-mode-hook #'lsp-headerline-breadcrumb-mode)
 
 (add-to-list 'lsp-language-id-configuration '(".*\\.scss$" . "css"))
+
 ;; Load tailwindcss LSP
 (use-package! lsp-tailwindcss
   :after lsp-mode
