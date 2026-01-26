@@ -77,10 +77,13 @@
   (:host github :repo "casouri/expreg" :branch "master"))
 
 (package! devdocs)
+
 (package! evil-textobj-tree-sitter :recipe
   (:host github :repo "meain/evil-textobj-tree-sitter" :branch "master" :files (:defaults "queries")))
 
-;; (package! claude-code-ide
-;;   :recipe (:host github :repo "manzaltu/claude-code-ide.el"))
+(package! treesit-sexp :recipe
+  (:host github :repo "alexispurslane/treesit-sexp" :branch "main"))
 
-(package! eca :recipe (:host github :repo "editor-code-assistant/eca-emacs" :files ("*.el")))
+(package! shell-maker)
+(package! acp)
+(package! agent-shell)

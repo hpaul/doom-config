@@ -21,6 +21,8 @@
 ;; See 'C-h v doom-font' for documentation and more examples of what they
 ;; accept. For example:
 ;;
+(require 'acp)
+(require 'agent-shell)
 
 ;; JuliaMono
 (setq doom-font (font-spec :family "JuliaMono" :size 16 :weight 'semi-light)
@@ -307,13 +309,13 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (use-package! gptel
   :config
   (setq! gptel-api-key (lambda () (getenv "OPENAI_API_KEY"))
-         ;; gptel-model   'gpt-oss-120b
          gptel-expert-commands t
          gptel-default-mode 'org-mode
-         gptel-model 'claude-opus-4-5-20251101
+         gptel-model 'claude-haiku-4-5-20251001
          gptel-backend
            (gptel-make-anthropic "Claude"
              :stream t :key (lambda () (getenv "ANTHROPIC_API_KEY")))
+         ;; gptel-model   'gpt-oss-120b
          ;; gptel-backend
          ;; (gptel-make-openai "Cerebras"
          ;;   :host "api.cerebras.ai"
@@ -417,7 +419,9 @@ Works for `evil-window-split' and `evil-window-vsplit'."
   (set-face-attribute 'mode-line nil
                       :background "#ff5f00"   ; a vivid orange, change to any colour you like
                       :foreground "#ffffff"
-                      :box nil))              ; optional: remove the thin box
+                      :box nil)              ; optional: remove the thin box
+
+  (setq doom-modeline-percent-position '(-3 "%p")))
 
 ;; Add `ace-window` command to embark
 (eval-when-compile
@@ -516,20 +520,11 @@ prevent eager expansion."
      which-key-replacement-alist
      '(("" . "\\`+?evil-textobj-tree-sitter-function--\\(.*\\)\\(?:.inner\\|.outer\\)") . (nil . "\\1")))))
 
-;; Claude Code IDE
-;; (use-package! claude-code-ide
-;;   :config
-;;   ;; Set window position and height
-;;   (setq claude-code-ide-window-side 'bottom
-;;         claude-code-ide-window-height 30)
 
-;;   ;; Enable Emacs MCP tools
-;;   (claude-code-ide-emacs-tools-setup))
-
-;; ;; Doom leader key binding
-;; (map! :leader
-;;       (:prefix ("o" . "open")
-;;        :desc "Claude Code" "l c" #'claude-code-ide-menu))
+(use-package treesit-sexp
+  :ensure t
+  :config
+  (global-treesit-sexp-mode 1))
 
 
 ;; -------------------------------------------------------------------
@@ -592,3 +587,23 @@ if Magit is disabled."
           (insert title)))))
 
   (add-hook 'forge-create-pullreq-mode-hook #'my/forge--populate-pr-title))
+
+
+;; -----------------------------------------------------------------------------
+;; Agent-Shell configuring
+;; -----------------------------------------------------------------------------
+(setq agent-shell-anthropic-authentication
+      (agent-shell-anthropic-make-authentication :login t))
+
+(use-package agent-shell
+  :config
+  ;; Evil state-specific RET behavior: insert mode = newline, normal mode = send
+  ;; (evil-define-key 'insert agent-shell-mode-map (kbd "RET") #'newline)
+  ;; (evil-define-key 'normal agent-shell-mode-map (kbd "RET") #'comint-send-input)
+
+  ;; Configure *agent-shell-diff* buffers to start in Emacs state
+  (add-hook 'diff-mode-hook
+            (lambda ()
+              (when (string-match-p "\\*agent-shell-diff\\*" (buffer-name))
+                (evil-emacs-state)))))
+
