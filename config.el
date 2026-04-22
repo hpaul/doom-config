@@ -72,7 +72,7 @@
   (interactive)
   (when (display-graphic-p)  ;; this is only for graphical emacs
     ;; the serif font familiy and height, save the default attributes
-    (let ((serif-fam "Liberation Serif")
+    (let ((serif-fam "Atkinson Hyperlegible")
           (serif-height 160)
           (default-fam (face-attribute 'default :family))
           (default-height (face-attribute 'default :height)))
@@ -387,18 +387,7 @@ Works for `evil-window-split' and `evil-window-vsplit'."
   (add-to-list 'lsp-language-id-configuration '(tsx-ts-mode . "typescriptreact"))
   (add-to-list 'lsp-language-id-configuration '(js-ts-mode . "javascript"))
 
-  ;; Explicitly register ts-ls for tree-sitter modes
-  (lsp-register-client
-   (make-lsp-client
-    :new-connection (lsp-stdio-connection '("typescript-language-server" "--stdio"))
-    :activation-fn (lsp-activate-on "typescript" "typescriptreact" "javascript")
-    :priority 0
-    :completion-in-comments? t
-    :server-id 'ts-ls)))
-
-(add-hook 'typescript-ts-mode-hook #'lsp-deferred)
-(add-hook 'tsx-ts-mode-hook #'lsp-deferred)
-(add-hook 'js-ts-mode-hook #'lsp-deferred)
+  )
 
 ;; Add useful stuff to `rotate-text' library
 ;; https://github.com/otavioschwanck/doom-emacs-on-rails/blob/master/modules/ruby.el
@@ -606,4 +595,3 @@ if Magit is disabled."
             (lambda ()
               (when (string-match-p "\\*agent-shell-diff\\*" (buffer-name))
                 (evil-emacs-state)))))
-

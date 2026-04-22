@@ -91,7 +91,7 @@
        llm               ; when I said you needed friends, I didn't mean...
        (lsp +bindings +peek)               ; M-x vscode
        (magit +forge)             ; a git porcelain for Emacs
-       ;;make              ; run make tasks from Emacs
+       make              ; run make tasks from Emacs
        ;;pass              ; password manager for nerds
        pdf               ; pdf enhancements
        (tree-sitter -compat)       ; syntax and parsing, sitting in a tree...
@@ -121,6 +121,8 @@
        (sh +lsp +tree-sitter)                ; she sells {ba,z,fi}sh shells on the C xor
        (web +html +lsp +tree-sitter)              ; the tubes
        (yaml +lsp +tree-sitter)              ; JSON, but readable
+       (elixir +tree-sitter +lsp)
+       (php +tree-sitter +lsp)
 
        :email
        ;;(mu4e +org +gmail)

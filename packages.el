@@ -87,3 +87,6 @@
 (package! shell-maker)
 (package! acp)
 (package! agent-shell)
+
+(package! kdl :recipe
+  (:host github :repo "taquangtrung/emacs-kdl-mode" :branch "main"))
