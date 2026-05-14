@@ -57,18 +57,10 @@
 (package! difftastic :recipe
   (:host github :repo "pkryger/difftastic.el" :branch "main"))
 
-(package! gptel-quick)
-(package! gptel-agent)
 
 (package! evil-matchit)
 
 (package! mcp)
-
-(package! gptel-prompts :recipe
-  (:host github :repo "jwiegley/gptel-prompts" :branch "main"))
-
-(package! templatel :recipe
-  (:host github :repo "emacs-love/templatel" :branch "main"))
 
 (package! lsp-tailwindcss :recipe
   (:host github :repo "merrickluo/lsp-tailwindcss" :branch "master"))

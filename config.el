@@ -305,46 +305,11 @@ Works for `evil-window-split' and `evil-window-vsplit'."
         lsp-headerline-breadcrumb-icons-enable t
         lsp-headerline-breadcrumb-segments '(symbols)))
 
-;; Configure models and prompts for `gptel'
-(use-package! gptel
-  :config
-  (setq! gptel-api-key (lambda () (getenv "OPENAI_API_KEY"))
-         gptel-expert-commands t
-         gptel-default-mode 'org-mode
-         gptel-model 'claude-haiku-4-5-20251001
-         gptel-backend
-           (gptel-make-anthropic "Claude"
-             :stream t :key (lambda () (getenv "ANTHROPIC_API_KEY")))
-         ;; gptel-model   'gpt-oss-120b
-         ;; gptel-backend
-         ;; (gptel-make-openai "Cerebras"
-         ;;   :host "api.cerebras.ai"
-         ;;   :endpoint "/v1/chat/completions"
-         ;;   :stream nil
-         ;;   :key (lambda () (getenv "CEREBRAS_API_KEY"))
-         ;;   :models '(gpt-oss-120b
-         ;;             qwen-3-coder-480b
-         ;;             llama3.1-70b
-         ;;             llama3.1-8b)))
-))
 
-(gptel-make-gemini "Gemini" :key (lambda () (getenv "GEMINI_API_KEY")) :stream t)
 
 (use-package! templatel :defer t)
 ;; Poet files should be opened as yaml
 (add-to-list 'auto-mode-alist '("\\.poet\\'" . yaml-mode))
-
-;; Implement prompt templates in their own files
-(after! gptel
-  (setq! gptel-prompts-directory (concat doom-user-dir "gptel-prompts"))
-  (require 'gptel-integrations)
-  (require 'templatel)
-  (require 'gptel-prompts)
-  (gptel-prompts-update)
-  ;; Ensure prompts are updated if prompt files change
-  (gptel-prompts-add-update-watchers)
-  (setq! gptel--system-message (alist-get 'base gptel-directives)))
-
 
 ;; Save last location when entering a file
 (save-place-mode 1)
@@ -373,21 +338,13 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (use-package! lsp-tailwindcss
   :after lsp-mode
   :init
-  (setq lsp-tailwindcss-add-on-mode nil))
+  (setq lsp-tailwindcss-add-on-mode t))
 
 ;; Only enable ruby-lsp
 (add-to-list 'lsp-disabled-clients 'rubocop-ls)
 
 ;; Tell lsp‑mode that a `web-mode` buffer representing an .html.erb
 (add-to-list 'lsp-language-id-configuration '(".*\\.html\\.erb$" . "html"))
-
-;; Ensure ts-ls works with tree-sitter modes
-(after! lsp-mode
-  (add-to-list 'lsp-language-id-configuration '(typescript-ts-mode . "typescript"))
-  (add-to-list 'lsp-language-id-configuration '(tsx-ts-mode . "typescriptreact"))
-  (add-to-list 'lsp-language-id-configuration '(js-ts-mode . "javascript"))
-
-  )
 
 ;; Add useful stuff to `rotate-text' library
 ;; https://github.com/otavioschwanck/doom-emacs-on-rails/blob/master/modules/ruby.el
