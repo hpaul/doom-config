@@ -15,7 +15,7 @@
 ;;      directory (for easy access to its source code).
 
 ;; Start profiler
-(setq! use-package-compute-statistics t)
+(setq use-package-compute-statistics t)
 
 ;; Early on init disable browser frame
 (add-to-list 'default-frame-alist '(undecorated . t))

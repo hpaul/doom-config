@@ -50,6 +50,8 @@
 
 (package! drag-stuff)
 
+(package! browse-at-remote)
+
 (package! tldr)
 
 (package! magit-imerge)

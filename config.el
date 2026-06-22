@@ -282,7 +282,7 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (setq! auth-sources '("~/.authinfo"))
 
 ;; Configure folders used for projects
-(setq! projectile-project-search-path '("~/apps/finetune/" "~/apps/clipbook/" "~/apps/"))
+(setq! projectile-project-search-path '("~/apps/finetune/" "~/apps/clipbook/" "~/apps/sogood/" "~/apps/"))
 
 (after! magit
   ;; Difftastic
