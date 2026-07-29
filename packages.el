@@ -84,3 +84,8 @@
 
 (package! kdl :recipe
   (:host github :repo "taquangtrung/emacs-kdl-mode" :branch "main"))
+
+;; Lints elisp *package metadata* (Package-Requires, Commentary headers) for
+;; MELPA submission -- irrelevant for a personal config. Costs ~85ms at startup
+;; and pulls in package-lint (a 2.2MB symbol table).
+(package! flycheck-package :disable t)

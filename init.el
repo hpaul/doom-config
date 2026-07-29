@@ -28,7 +28,7 @@
        doom              ; what makes DOOM look the way it does
        doom-dashboard    ; a nifty splash screen for Emacs
        ;;doom-quit         ; DOOM quit-message prompts when you quit Emacs
-       (emoji +unicode)  ; 🙂
+       ;; (emoji +unicode)  ; 🙂
        hl-todo           ; highlight TODO/FIXME/NOTE/DEPRECATED/HACK/REVIEW
        indent-guides     ; highlighted indent columns
        ligatures         ; ligatures and symbols to make your code pretty again
@@ -76,14 +76,14 @@
        vterm             ; the best terminal emulation in Emacs
 
        :checkers
-       (syntax +icons)              ; tasing you for every semicolon you forget
+       (syntax +icons +childframe)  ; tasing you for every semicolon you forget
        (spell +flyspell +hunspell) ; tasing you for misspelling mispelling
 
        :tools
        ;;ansible
        ;;debugger          ; FIXME stepping through code, to help you add bugs
        direnv
-       (docker +lsp +tree-sitter)
+       ;; (docker +lsp +tree-sitter)
        editorconfig      ; let someone else argue about tabs vs spaces
        ;;ein               ; tame Jupyter notebooks with emacs
        (eval +overlay)     ; run code, run (also, repls)
@@ -93,9 +93,9 @@
        (magit +forge)             ; a git porcelain for Emacs
        make              ; run make tasks from Emacs
        ;;pass              ; password manager for nerds
-       pdf               ; pdf enhancements
+       ;; pdf               ; pdf enhancements
        (tree-sitter -compat)       ; syntax and parsing, sitting in a tree...
-       (terraform +lsp)
+       ;; (terraform +lsp)
        ;;upload            ; map local to remote projects via ssh/ftp
 
        :os
@@ -103,10 +103,10 @@
        tty               ; improve the terminal Emacs experience
 
        :lang
-       (cc +lsp +tree-sitter)         ; C > C++ == 1
+       ;; (cc +lsp +tree-sitter)         ; C > C++ == 1
        ;;data              ; config/data formats
        (emacs-lisp +lsp +tree-sitter)        ; drown in parentheses
-       (graphql +lsp +tree-sitter)    ; Give queries a REST
+       ;; (graphql +lsp +tree-sitter)    ; Give queries a REST
        (json +tree-sitter)              ; At least it ain't XML
        (javascript +lsp +tree-sitter)        ; all(hope(abandon(ye(who(enter(here))))))
        ;;latex             ; writing papers in Emacs has never been so fun
@@ -117,12 +117,12 @@
        (python +cython +lsp +tree-sitter +pyright +uv)            ; beautiful is better than ugly
        ;;qt                ; the 'cutest' gui framework ever
        (rest +jq)              ; Emacs as a REST client
-       (ruby +rails +lsp +tree-sitter)     ; 1.step {|i| p "Ruby is #{i.even? ? 'love' : 'life'}"}
+       ;; (ruby +rails +lsp +tree-sitter)     ; 1.step {|i| p "Ruby is #{i.even? ? 'love' : 'life'}"}
        (sh +lsp +tree-sitter)                ; she sells {ba,z,fi}sh shells on the C xor
        (web +html +lsp +tree-sitter)              ; the tubes
        (yaml +lsp +tree-sitter)              ; JSON, but readable
-       (elixir +tree-sitter +lsp)
-       (php +tree-sitter +lsp)
+       ;; (elixir +tree-sitter +lsp)
+       ;; (php +tree-sitter +lsp)
 
        :email
        ;;(mu4e +org +gmail)
@@ -130,7 +130,7 @@
        ;;(wanderlust +gmail)
 
        :app
-       calendar
+       ;; calendar
        ;;emms
        ;;everywhere        ; *leave* Emacs!? You must be joking
        ;;irc               ; how neckbeards socialize

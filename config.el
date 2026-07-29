@@ -328,7 +328,23 @@ Works for `evil-window-split' and `evil-window-vsplit'."
         lsp-headerline-breadcrumb-enable t
         lsp-signature-auto-activate nil
         lsp-signature-render-documentation nil
-        lsp-ui-sideline-enable nil))
+        lsp-ui-sideline-enable nil
+        ;; Never prompt to watch large repos; skip file watchers (always "n").
+        lsp-enable-file-watchers nil
+        ;; Throttle: debounce didChange/pull-diagnostics bursts (esp. after a
+        ;; branch switch, when many buffers change at once).
+        lsp-idle-delay 1.0))
+
+;; The vscode-eslint server defaults to `run' = "onType", which re-lints the
+;; whole file on every keystroke. With this repo's .eslintrc (import + prettier
+;; plugins) that pegs a core permanently. Lint on save instead.
+(after! lsp-eslint
+  (setq lsp-eslint-run "onSave"))
+
+;; tsserver has no memory ceiling by default and grows unbounded across long
+;; sessions (esp. with many branch switches). Cap it so it recycles instead.
+(after! lsp-javascript
+  (setq lsp-clients-typescript-max-ts-server-memory 3072))
 
 (add-hook 'lsp-mode-hook #'lsp-headerline-breadcrumb-mode)
 
