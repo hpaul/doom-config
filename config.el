@@ -21,9 +21,6 @@
 ;; See 'C-h v doom-font' for documentation and more examples of what they
 ;; accept. For example:
 ;;
-(require 'acp)
-(require 'agent-shell)
-
 ;; JuliaMono
 (setq doom-font (font-spec :family "JuliaMono" :size 16 :weight 'semi-light)
       doom-variable-pitch-font (font-spec :family "JuliaMono" :weight 'light :size 16)
@@ -552,19 +549,61 @@ if Magit is disabled."
 
 
 ;; -----------------------------------------------------------------------------
-;; Agent-Shell configuring
+;; Claude Code IDE
 ;; -----------------------------------------------------------------------------
-(setq agent-shell-anthropic-authentication
-      (agent-shell-anthropic-make-authentication :login t))
-
-(use-package agent-shell
+;; Runs the real `claude' CLI in a ghostel popup, and exposes Emacs itself
+;; (xref/LSP, tree-sitter, imenu, project) to Claude over MCP.
+(use-package! claude-code-ide
   :config
-  ;; Evil state-specific RET behavior: insert mode = newline, normal mode = send
-  ;; (evil-define-key 'insert agent-shell-mode-map (kbd "RET") #'newline)
-  ;; (evil-define-key 'normal agent-shell-mode-map (kbd "RET") #'comint-send-input)
+  (setq claude-code-ide-terminal-backend 'ghostel
+        ;; No effect unless `evil-ghostel' is loaded; routes insert-state ESC
+        ;; to evil instead of letting Claude's TUI swallow it.
+        claude-code-ide-ghostel-evil-escape 'evil
+        claude-code-ide-show-backend-recommendation nil
+        claude-code-ide-enable-mcp-server t
+        ;; Let Doom's popup system own the window instead of the package's own
+        ;; side-window code, so it behaves exactly like `<leader> o t'.
+        claude-code-ide-use-side-window nil)
+  (claude-code-ide-emacs-tools-setup))
 
-  ;; Configure *agent-shell-diff* buffers to start in Emacs state
-  (add-hook 'diff-mode-hook
-            (lambda ()
-              (when (string-match-p "\\*agent-shell-diff\\*" (buffer-name))
-                (evil-emacs-state)))))
+;; Without this hook `evil-ghostel-mode' never turns on, and
+;; `claude-code-ide-ghostel-evil-escape' is a no-op (it only applies when the
+;; mode is active in the buffer -- claude-code-ide.el:536).
+(use-package! evil-ghostel
+  :after (ghostel evil)
+  :hook (ghostel-mode . evil-ghostel-mode))
+
+;; claude-code-ide registers only `^/mcp\(/.*\)?$' handlers with `ws-start'
+;; (claude-code-ide-mcp-http-server.el:90), and emacs-web-server answers every
+;; unmatched path with a 500 (web-server.el:335). Claude Code probes
+;; /.well-known/oauth-authorization-server before connecting and reads that 500
+;; as a failed OAuth discovery -- hence "MCP server needs authentication".
+;; Appending a catch-all 404 makes the probe answer "no OAuth here".
+;; Upstream bug: https://github.com/manzaltu/claude-code-ide.el/issues/180
+(defun +claude-code-ide--ws-send-404 (request)
+  "Answer REQUEST with a 404 instead of letting web-server fall through to 500."
+  (ws-send-404 (ws-process request)))
+
+(defun +claude-code-ide--ws-start-catch-all (args)
+  "Append catch-all 404 handlers to ARGS when `ws-start' is claude-code-ide's."
+  (let ((handlers (car args)))
+    (if (and (consp handlers)
+             (cl-some (lambda (h)
+                        (and (consp (car h))
+                             (equal (cdar h) "^/mcp\\(/.*\\)?$")))
+                      handlers))
+        (cons (append handlers
+                      `(((:GET . ".") . ,#'+claude-code-ide--ws-send-404)
+                        ((:POST . ".") . ,#'+claude-code-ide--ws-send-404)
+                        ((:HEAD . ".") . ,#'+claude-code-ide--ws-send-404)))
+              (cdr args))
+      args)))
+
+(advice-add 'ws-start :filter-args #'+claude-code-ide--ws-start-catch-all)
+
+;; Mirrors Doom's own vterm rule (term/vterm/config.el:18), separate vslot so
+;; Claude and a vterm popup don't evict each other.
+(set-popup-rule! "^\\*claude-code" :size 0.25 :vslot -5 :select t :quit nil :ttl 0)
+
+(map! :leader
+      :desc "Claude Code" "o c" #'claude-code-ide-menu)
