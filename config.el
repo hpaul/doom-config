@@ -573,6 +573,20 @@ if Magit is disabled."
   :after (ghostel evil)
   :hook (ghostel-mode . evil-ghostel-mode))
 
+;; Push ghostel's VT engine through the rest of Emacs, not just Claude:
+;; eshell's visual commands (less, htop, ...) run in ghostel buffers, compile
+;; renders through the same engine, and comint uses ghostel's VT parser in
+;; place of `ansi-color-process-output'. Deferred to `doom-first-buffer' to
+;; keep them off the startup path.
+(use-package! ghostel-eshell
+  :hook (eshell-load . ghostel-eshell-visual-command-mode))
+
+(use-package! ghostel-compile
+  :hook (doom-first-buffer . ghostel-compile-global-mode))
+
+(use-package! ghostel-comint
+  :hook (doom-first-buffer . ghostel-comint-global-mode))
+
 ;; claude-code-ide registers only `^/mcp\(/.*\)?$' handlers with `ws-start'
 ;; (claude-code-ide-mcp-http-server.el:90), and emacs-web-server answers every
 ;; unmatched path with a 500 (web-server.el:335). Claude Code probes
