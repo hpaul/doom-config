@@ -590,10 +590,17 @@ if Magit is disabled."
 ;; (xref/LSP, tree-sitter, imenu, project) to Claude over MCP.
 (use-package! claude-code-ide
   :config
+  ;; Claude's own theme is a settings key, not a flag; --settings takes literal
+  ;; JSON and the command is assembled into a shell string, so this pins the
+  ;; light theme for Emacs-hosted sessions without touching ~/.claude/settings.json.
+  (setq claude-code-ide-cli-extra-flags "--settings '{\"theme\":\"light\"}'")
   (setq claude-code-ide-terminal-backend 'ghostel
-        ;; No effect unless `evil-ghostel' is loaded; routes insert-state ESC
-        ;; to evil instead of letting Claude's TUI swallow it.
-        claude-code-ide-ghostel-evil-escape 'evil
+        ;; No effect unless `evil-ghostel' is loaded. `terminal' always sends
+        ;; insert-state ESC to Claude, so it stays the interrupt key -- `auto'
+        ;; would route it to evil here, since the inline renderer never enters
+        ;; the alt screen. Use `C-c ESC' (evil-force-normal-state) to reach
+        ;; normal state once for scrolling or copying, without changing routing.
+        claude-code-ide-ghostel-evil-escape 'terminal
         claude-code-ide-show-backend-recommendation nil
         claude-code-ide-enable-mcp-server t
         ;; Let Doom's popup system own the window instead of the package's own
@@ -604,6 +611,34 @@ if Magit is disabled."
 ;; `evil-ghostel-mode' (which `claude-code-ide-ghostel-evil-escape' needs to be
 ;; active in the buffer -- claude-code-ide.el:536) and the comint/compile/eshell
 ;; integration both come from `:term (ghostel +everywhere)' in init.el.
+
+;; Keep the native module outside straight's build tree: `doom sync' rebuilds
+;; that directory and deletes the .so out from under a running Emacs, which is
+;; what produces "Native module not found" on the next check.
+(setq ghostel-module-directory (expand-file-name "ghostel/" doom-data-dir))
+
+;; A CLAUDE_* set leaks into Emacs' `process-environment' from whichever Claude
+;; session last touched it, and every terminal we spawn inherits it. The
+;; CHILD_SESSION marker makes Claude treat the session as a sub-agent and skip
+;; writing a transcript, so `/resume' never sees Emacs-hosted sessions. Strip
+;; them at spawn time, mirroring the module's own direnv hook.
+(after! ghostel
+  (add-hook! 'ghostel-pre-spawn-hook
+    (defun +ghostel-strip-stale-claude-vars-h (&rest _)
+      (setq-local process-environment
+                  (seq-remove (lambda (v)
+                                (string-match-p
+                                 (rx bos (or "CLAUDECODE" "CLAUDE_PID" "CLAUDE_EFFORT"
+                                             "CLAUDE_CODE_CHILD_SESSION"
+                                             "CLAUDE_CODE_SESSION_ID"
+                                             "CLAUDE_CODE_BRIDGE_SESSION_ID"
+                                             "CLAUDE_CODE_EXECPATH"
+                                             "CLAUDE_CODE_ENTRYPOINT"
+                                             "CLAUDE_CODE_MESSAGING_SOCKET"
+                                             "CLAUDE_CODE_MESSAGING_TOKEN")
+                                     "=")
+                                 v))
+                              process-environment)))))
 
 ;; claude-code-ide registers only `^/mcp\(/.*\)?$' handlers with `ws-start'
 ;; (claude-code-ide-mcp-http-server.el:90), and emacs-web-server answers every

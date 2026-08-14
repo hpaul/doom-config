@@ -79,6 +79,11 @@
 (package! claude-code-ide :recipe
   (:host github :repo "manzaltu/claude-code-ide.el"))
 
+;; Doom's :term ghostel module pins 0.43.0 (2026-07-11), which predates the
+;; `C-c ESC' binding we rely on now that ESC is routed to the terminal.
+;; Track upstream instead; `doom sync -u' moves these forward.
+(unpin! ghostel evil-ghostel)
+
 (package! kdl :recipe
   (:host github :repo "taquangtrung/emacs-kdl-mode" :branch "main"))
 
