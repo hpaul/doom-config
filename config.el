@@ -799,10 +799,195 @@ visited, else the first session in order."
   (interactive)
   (+claude-code-ide-cycle-session -1))
 
+;; The same ring, reachable without leaving the terminal: `C-c [' / `C-c ]'
+;; inside any ghostel buffer walks this project's terminals, Claude sessions
+;; and plain shells alike.
+;;
+;; `C-c' is in `ghostel-keymap-exceptions' (ghostel.el:689), so it stays with
+;; Emacs, and every binding ghostel puts under it carries a modifier -- bare
+;; `[' and `]' are free. Binding on `ghostel-mode-map' covers semi-char, line
+;; and readonly modes, which all inherit it. Char mode is the exception: its
+;; keymap has no parent and swallows `C-c' whole (ghostel.el:1406), so these
+;; go dark between `C-c M-d' and `C-c C-j'.
+(defun +ghostel--buffer-project (buffer)
+  "Return BUFFER's project root, honouring `+project-umbrella-root'.
+Claude terminals answer from their session, which is pinned at spawn
+time and so survives a `cd' inside the shell."
+  (or (when (fboundp 'claude-code-ide--buffer-session)
+        (when-let* ((session (claude-code-ide--buffer-session buffer)))
+          (expand-file-name (claude-code-ide-mcp-session-project-dir session))))
+      (with-current-buffer buffer
+        (when-let* ((project (project-current)))
+          (expand-file-name (project-root project))))))
+
+(defun +ghostel--ordered-buffers ()
+  "Return this project's live ghostel buffers, in a stable name order."
+  (let ((root (+ghostel--buffer-project (current-buffer))))
+    (sort (cl-remove-if-not
+           (lambda (buffer)
+             (and (eq (buffer-local-value 'major-mode buffer) 'ghostel-mode)
+                  root
+                  (equal (+ghostel--buffer-project buffer) root)))
+           (buffer-list))
+          (lambda (a b) (string< (buffer-name a) (buffer-name b))))))
+
+(defun +ghostel-cycle-buffer (n)
+  "Switch to the Nth ghostel terminal after this one, wrapping around."
+  (let ((buffers (+ghostel--ordered-buffers)))
+    (unless buffers
+      (user-error "No ghostel terminal for this project"))
+    (let* ((position (cl-position (current-buffer) buffers))
+           (index (if position (mod (+ position n) (length buffers)) 0))
+           (buffer (nth index buffers)))
+      (if-let* ((window (get-buffer-window buffer)))
+          (select-window window)
+        (pop-to-buffer buffer))
+      ;; Keep claude-code-ide's MRU bookkeeping honest, so `SPC o c ]' and the
+      ;; package's own switchers agree with where we just landed.
+      (when (fboundp 'claude-code-ide--touch-session)
+        (when-let* ((session (claude-code-ide--buffer-session buffer)))
+          (claude-code-ide--touch-session session)))
+      (message "Terminal %d/%d: %s"
+               (1+ index) (length buffers) (buffer-name buffer)))))
+
+(defun +ghostel-next-buffer ()
+  "Switch to the next ghostel terminal of this project."
+  (interactive)
+  (+ghostel-cycle-buffer 1))
+
+(defun +ghostel-prev-buffer ()
+  "Switch to the previous ghostel terminal of this project."
+  (interactive)
+  (+ghostel-cycle-buffer -1))
+
+;; -----------------------------------------------------------------------------
+;; Resume a past Claude session from a completing-read list
+;; -----------------------------------------------------------------------------
+;; `claude-code-ide-resume' passes a bare `-r' and leaves you in the CLI's own
+;; TUI picker (claude-code-ide.el:1132). `claude -r <session-id>' resumes
+;; directly, so the picker can be an Emacs one instead.
+;;
+;; Transcripts live in ~/.claude/projects/<dir>/<session-uuid>.jsonl, where <dir>
+;; is the working directory with `/' and `.' flattened to `-'. That working
+;; directory is `claude-code-ide--get-working-directory', so `+project-umbrella-root'
+;; is already accounted for.
+(defun +claude-code-ide--transcript-directory (project-dir)
+  "Return the ~/.claude/projects directory holding PROJECT-DIR's transcripts."
+  (expand-file-name
+   (replace-regexp-in-string "[/.]" "-" (directory-file-name project-dir))
+   (expand-file-name "~/.claude/projects/")))
+
+(defun +claude-code-ide--session-titles (dir)
+  "Return a hash of session id -> title for the transcripts in DIR.
+Claude appends an `ai-title' record whenever it renames a conversation, so
+the last one wins.  Those records are uniform ~111-byte lines, which is why
+`rg' does the filtering: it discards the bulk of the corpus (445MB across 57
+sessions on the largest project here) and hands `jq' a few thousand tiny
+objects, turning a 1.85s all-lines parse into 0.09s end to end.  Cold cache
+still pays for the read."
+  (let ((titles (make-hash-table :test #'equal)))
+    (with-temp-buffer
+      (call-process
+       "sh" nil t nil "-c"
+       ;; `env -u RIPGREP_CONFIG_PATH' rather than overriding single flags:
+       ;; ~/.ripgreprc carries `--max-columns=80 --max-columns-preview', which
+       ;; truncates these records into invalid JSON, and a future
+       ;; `--max-filesize' there would silently drop the largest transcripts.
+       (format "env -u RIPGREP_CONFIG_PATH rg --no-filename --no-line-number '\"type\":\"ai-title\"' -g '*.jsonl' %s | jq -r '[.sessionId,.aiTitle]|@tsv'"
+               (shell-quote-argument dir)))
+      (goto-char (point-min))
+      (while (re-search-forward "^\\([^\t\n]+\\)\t\\(.*\\)$" nil t)
+        (puthash (match-string 1) (match-string 2) titles)))
+    titles))
+
+(defun +claude-code-ide--transcripts (project-dir)
+  "Return PROJECT-DIR's past sessions as (ID TIME TITLE), newest first."
+  (let ((dir (+claude-code-ide--transcript-directory project-dir)))
+    (when (file-directory-p dir)
+      (let ((titles (+claude-code-ide--session-titles dir))
+            rows)
+        ;; Modification times come straight from the directory listing -- no
+        ;; second subprocess, and no need to read the files at all.
+        (pcase-dolist (`(,file . ,attributes)
+                       (directory-files-and-attributes dir nil "\\.jsonl\\'" t))
+          (let ((id (file-name-base file)))
+            (push (list id
+                        (file-attribute-modification-time attributes)
+                        (gethash id titles))
+                  rows)))
+        (sort rows (lambda (a b) (time-less-p (nth 1 b) (nth 1 a))))))))
+
+(defun +claude-code-ide-resume-from-list ()
+  "Resume one of this project's past Claude sessions in a new instance.
+Lists them newest first, by the title Claude gave the conversation."
+  (interactive)
+  (let* ((project-dir (claude-code-ide--get-working-directory))
+         (rows (+claude-code-ide--transcripts project-dir)))
+    (unless rows
+      (user-error "No past Claude sessions for %s" (abbreviate-file-name project-dir)))
+    (let* ((candidates
+            (mapcar (pcase-lambda (`(,id ,time ,title))
+                      ;; The id tail keeps entries unique: two conversations
+                      ;; can carry the same title, and `completing-read' would
+                      ;; otherwise resolve to whichever came first.
+                      (cons (format "%s  %-58s  %s"
+                                    (format-time-string "%m-%d %H:%M" time)
+                                    (or title "(untitled)")
+                                    (substring id 0 8))
+                            id))
+                    rows))
+           ;; `identity' as the sort function keeps our recency order; vertico
+           ;; would otherwise re-sort by history and length.
+           (table (lambda (string predicate action)
+                    (if (eq action 'metadata)
+                        '(metadata (display-sort-function . identity)
+                                   (cycle-sort-function . identity))
+                      (complete-with-action action candidates string predicate))))
+           (choice (completing-read "Resume Claude session: " table nil t))
+           (id (cdr (assoc choice candidates)))
+           ;; No advice needed: `claude-code-ide--build-claude-command' appends
+           ;; these flags verbatim (claude-code-ide.el:1150), so the instance is
+           ;; built exactly like any other -- MCP server, popup, bookkeeping.
+           (claude-code-ide-cli-extra-flags
+            (string-trim (concat claude-code-ide-cli-extra-flags
+                                 " --resume " (shell-quote-argument id)))))
+      (claude-code-ide--start-session))))
+
+;; The three Session Management entries of `claude-code-ide-menu' worth reaching
+;; without leaving the terminal (claude-code-ide-transient.el:325-327), on the
+;; same letters the menu uses.  `r' is the one improvement: our list rather than
+;; the CLI's TUI picker, which stays reachable from the menu itself.
+(defvar +claude-code-ide-terminal-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "s" #'claude-code-ide)
+    (define-key map "c" #'claude-code-ide-continue)
+    (define-key map "r" #'+claude-code-ide-resume-from-list)
+    map)
+  "Keymap behind `C-c c' inside a Claude Code terminal.")
+
+(after! ghostel
+  (map! :map ghostel-mode-map
+        "C-c [" #'+ghostel-prev-buffer
+        "C-c ]" #'+ghostel-next-buffer)
+
+  ;; `C-c c' must exist only in Claude terminals, but there is no hook to hang a
+  ;; minor mode on -- `claude-code-ide--session' is set by the caller *after* the
+  ;; buffer is created (claude-code-ide.el:1430), so `ghostel-mode-hook' sees nil.
+  ;; A `:filter' menu-item resolves the binding at lookup time instead: in a plain
+  ;; shell it returns nil and the key is simply undefined.
+  (define-key ghostel-mode-map (kbd "C-c c")
+              `(menu-item "" ,+claude-code-ide-terminal-map
+                          :filter ,(lambda (map)
+                                     (and (bound-and-true-p claude-code-ide--session)
+                                          map)))))
+
 ;; A key is either a command or a prefix, never both, so the menu moves down to
 ;; `o c c' to make room for the cycling pair.
 (map! :leader
       (:prefix ("o c" . "Claude Code")
        :desc "Claude Code menu"     "c" #'claude-code-ide-menu
+       ;; Also on the leader, not just `C-c c r': resuming is exactly what you
+       ;; reach for when the project has no terminal to press `C-c' in.
+       :desc "Resume past session"     "r" #'+claude-code-ide-resume-from-list
        :desc "Previous Claude session" "[" #'+claude-code-ide-prev-session
        :desc "Next Claude session"     "]" #'+claude-code-ide-next-session))
