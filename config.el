@@ -342,6 +342,30 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (after! projectile
   (setq! projectile-switch-project-action #'projectile-dired))
 
+;; Umbrella workspaces -- one directory holding several sibling git repos
+;; (~/apps/sogood) that should behave as a SINGLE project.
+;;
+;; Projectile already handles this: `projectile-root-marked' runs before
+;; `projectile-root-bottom-up', so an empty `.projectile' at the umbrella wins
+;; over the nested .git dirs. project.el does not: `project-try-vc' stops at the
+;; first .git it meets on the way up. That matters because claude-code-ide.el
+;; asks project.el (not projectile) for its working directory, so Claude would
+;; otherwise start inside a single sub-repo and lose the cross-repo view.
+(defun +project-umbrella-root (dir)
+  "Treat the nearest `.projectile'-marked ancestor of DIR as the project root."
+  (when-let* ((root (locate-dominating-file dir ".projectile")))
+    (cons 'transient (expand-file-name root))))
+
+;; When fd does the indexing it already walks into submodules, so projectile's
+;; separate submodule listing only produces duplicate entries (5085 dupes out of
+;; 10243 in ~/apps/sogood).
+(after! projectile
+  (when projectile-fd-executable
+    (setq projectile-git-submodule-command nil)))
+
+(after! project
+  (add-hook 'project-find-functions #'+project-umbrella-root))
+
 
 (after! lsp-mode
   ;; Re-enable lsp-mode's built-in headerline/breadcrumbs,
@@ -606,7 +630,43 @@ if Magit is disabled."
         ;; Let Doom's popup system own the window instead of the package's own
         ;; side-window code, so it behaves exactly like `<leader> o t'.
         claude-code-ide-use-side-window nil)
-  (claude-code-ide-emacs-tools-setup))
+  (claude-code-ide-emacs-tools-setup)
+
+  ;; The Emacs MCP server only dispatches initialize/tools/list/tools/call
+  ;; (claude-code-ide-mcp-http-server.el:181-193), but the Claude CLI probes
+  ;; resources/list and prompts/list right after the handshake. Those fall to
+  ;; the `_' branch, which signals `json-rpc-error' -- a symbol the package
+  ;; never `define-error's, so it is not an `error' subtype, escapes the
+  ;; handler at :178, and surfaces as
+  ;;   error in process filter: peculiar error: -32601, "Method not found"
+  ;; Answer the probes with empty lists, and make any other unknown method
+  ;; degrade into a normal JSON-RPC error response instead of a broken filter.
+  (define-error 'json-rpc-error "JSON-RPC error" 'error)
+
+  (defun +claude-code-ide-mcp-empty-listings-a (method &rest _)
+    "Answer MCP listing probes the Emacs server does not implement."
+    (pcase method
+      ("resources/list" '((resources . [])))
+      ("resources/templates/list" '((resourceTemplates . [])))
+      ("prompts/list" '((prompts . [])))))
+
+  (advice-add 'claude-code-ide-mcp-http-server--dispatch
+              :before-until #'+claude-code-ide-mcp-empty-listings-a)
+
+  ;; Claude Code 2.1.x drives its TUI on the alternate screen, and a terminal on
+  ;; the alt screen has no scrollback by definition -- scrolled-off output is
+  ;; discarded rather than materialised into the ghostel buffer, so there is no
+  ;; conversation history to scroll back through in Emacs (the buffer is exactly
+  ;; as tall as the window). The CLI ships an opt-out; keep it scoped to the
+  ;; sessions we spawn rather than leaking into Emacs' own environment.
+  (defun +claude-code-ide-inline-screen-a (fn &rest args)
+    "Run Claude without the alternate screen so ghostel keeps a scrollback."
+    (let ((process-environment
+           (cons "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1" process-environment)))
+      (apply fn args)))
+
+  (advice-add 'claude-code-ide--create-terminal-session
+              :around #'+claude-code-ide-inline-screen-a))
 
 ;; `evil-ghostel-mode' (which `claude-code-ide-ghostel-evil-escape' needs to be
 ;; active in the buffer -- claude-code-ide.el:536) and the comint/compile/eshell
