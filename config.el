@@ -617,7 +617,10 @@ if Magit is disabled."
   ;; Claude's own theme is a settings key, not a flag; --settings takes literal
   ;; JSON and the command is assembled into a shell string, so this pins the
   ;; light theme for Emacs-hosted sessions without touching ~/.claude/settings.json.
-  (setq claude-code-ide-cli-extra-flags "--settings '{\"theme\":\"light\"}'")
+  ;; `--permission-mode auto' is how these sessions get started by hand; keep it
+  ;; scoped to Emacs-hosted ones rather than baking it into ~/.claude/settings.json.
+  (setq claude-code-ide-cli-extra-flags
+        "--settings '{\"theme\":\"light\"}' --permission-mode auto")
   (setq claude-code-ide-terminal-backend 'ghostel
         ;; No effect unless `evil-ghostel' is loaded. `terminal' always sends
         ;; insert-state ESC to Claude, so it stays the interrupt key -- `auto'
@@ -746,5 +749,60 @@ if Magit is disabled."
 ;; vslot so Claude and a `<leader> o t' terminal don't evict each other.
 (set-popup-rule! "^\\*claude-code" :size 0.25 :vslot -5 :select t :quit nil :ttl 0)
 
+;; `claude-code-ide-mcp--sessions-for-project' documents its return value as
+;; unordered (claude-code-ide-mcp.el:162) -- it just walks a hash table -- and
+;; the package's own switchers sort by last-used, which reshuffles the list on
+;; every jump. Cycling needs a *stable* order, so sort by display name.
+(defun +claude-code-ide--ordered-sessions ()
+  "Return this project's Claude sessions in a stable, name-sorted order."
+  (sort (claude-code-ide-mcp--sessions-for-project
+         (claude-code-ide--get-working-directory))
+        (lambda (a b)
+          (string< (claude-code-ide--session-display-name a)
+                   (claude-code-ide--session-display-name b)))))
+
+(defun +claude-code-ide-cycle-session (n)
+  "Switch to the Nth session after the current one, wrapping around.
+The starting point is the Claude terminal at point, else the last one
+visited, else the first session in order."
+  (claude-code-ide--cleanup-dead-sessions)
+  (let ((sessions (+claude-code-ide--ordered-sessions)))
+    (unless sessions
+      (user-error "No Claude Code session for this project"))
+    (let* ((current (or (claude-code-ide--buffer-session)
+                        (cl-find claude-code-ide--last-accessed-buffer sessions
+                                 :key #'claude-code-ide-mcp-session-buffer)))
+           ;; With no anchor, `[' and `]' should both land on the first
+           ;; session rather than skipping past it.
+           (index (if current
+                      (mod (+ (cl-position current sessions) n) (length sessions))
+                    0))
+           (session (nth index sessions))
+           (buffer (claude-code-ide-mcp-session-buffer session)))
+      (unless (buffer-live-p buffer)
+        (user-error "Buffer for %s no longer exists"
+                    (claude-code-ide--session-display-name session)))
+      (select-window (or (get-buffer-window buffer)
+                         (claude-code-ide--display-buffer-in-side-window buffer)))
+      (claude-code-ide--touch-session session)
+      (message "Claude instance %d/%d: %s"
+               (1+ index) (length sessions)
+               (claude-code-ide--session-display-name session)))))
+
+(defun +claude-code-ide-next-session ()
+  "Switch to the next Claude Code session of this project."
+  (interactive)
+  (+claude-code-ide-cycle-session 1))
+
+(defun +claude-code-ide-prev-session ()
+  "Switch to the previous Claude Code session of this project."
+  (interactive)
+  (+claude-code-ide-cycle-session -1))
+
+;; A key is either a command or a prefix, never both, so the menu moves down to
+;; `o c c' to make room for the cycling pair.
 (map! :leader
-      :desc "Claude Code" "o c" #'claude-code-ide-menu)
+      (:prefix ("o c" . "Claude Code")
+       :desc "Claude Code menu"     "c" #'claude-code-ide-menu
+       :desc "Previous Claude session" "[" #'+claude-code-ide-prev-session
+       :desc "Next Claude session"     "]" #'+claude-code-ide-next-session))
