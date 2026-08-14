@@ -260,6 +260,10 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (after! magit
   (setq magit-diff-refine-hunk 'all)
   (remove-hook 'magit-refs-sections-hook 'magit-insert-tags)
+  ;; The status header's "next tag" runs `git describe --contains', which walks
+  ;; history against every tag: 0.22s of a 0.42s magit-status open here (1093
+  ;; tags). Measured with `magit-refresh-verbose'.
+  (remove-hook 'magit-status-headers-hook 'magit-insert-tags-header)
   (remove-hook 'server-switch-hook 'magit-commit-diff)
   (remove-hook 'with-editor-filter-visit-hook 'magit-commit-diff))
 
@@ -335,6 +339,13 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (after! lsp-eslint
   (setq lsp-eslint-run "onSave"))
 
+;; `mode-enabled' checks the moment flycheck-mode turns on, i.e. while the file
+;; is still opening -- that first check blocks on the lsp attach (measured:
+;; 1.059s cold, 0.000s warm, visiting a file from magit). `idle-buffer-switch'
+;; gives the same on-open diagnostics a beat later, without blocking.
+(after! flycheck
+  (setq flycheck-check-syntax-automatically '(save idle-change idle-buffer-switch)))
+
 ;; tsserver has no memory ceiling by default and grows unbounded across long
 ;; sessions (esp. with many branch switches). Cap it so it recycles instead.
 (after! lsp-javascript
@@ -397,10 +408,11 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 ;; (define-key embark-search-project          (kbd "o") (my/embark-ace-action +default/search-project))
 
 ;; Bind devdocs-looup to `<leader> h s` since the default binding is not useful
+;; NOTE: do not use `(:prefix ("h" . "help") ...)' here -- the cons form builds
+;; a *new* prefix keymap and binds it at `h', clobbering Doom's `help-map'
+;; (config/default/+evil-bindings.el:343) and every SPC h helper with it.
 (map! :leader
-      (:prefix ("h" . "help")
-       :desc "DevDocs lookup"
-       "s" #'devdocs-lookup))
+      :desc "DevDocs lookup" "h s" #'devdocs-lookup)
 
 
 ;; Some goodies for tree-sitter sexp movements
@@ -523,8 +535,10 @@ if Magit is disabled."
 ;;  Auto‑populate Forge PR title with the last commit subject
 ;; -------------------------------------------------------------------
 (after! forge
-  ;; Auto-pull forge data when opening magit-status
-  (add-hook 'magit-status-mode-hook #'forge-pull)
+  ;; Auto-pulling forge data on every magit-status fires an async GitHub round
+  ;; trip (~0.45s) that refreshes the buffer under you a beat after it opens.
+  ;; Pull on demand with `f f' instead.
+  ;; (add-hook 'magit-status-mode-hook #'forge-pull)
 
   (defun my/forge--last-commit-subject ()
     "Return the subject line of the most recent commit on the current branch."
