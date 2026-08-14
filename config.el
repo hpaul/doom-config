@@ -267,6 +267,30 @@ Works for `evil-window-split' and `evil-window-vsplit'."
   (remove-hook 'server-switch-hook 'magit-commit-diff)
   (remove-hook 'with-editor-filter-visit-hook 'magit-commit-diff))
 
+;; Magit's keys are transient *suffixes*, not keymap entries -- `map!' and
+;; `define-key' do nothing to them; `transient-suffix-put' is the lever.
+;; lazygit muscle memory: `n' creates a branch AND switches to it, and `r'
+;; rebases onto another branch. Magit's defaults are `c' and `r e'.
+;; Order matters: n -> N must happen before c -> n, or the keys collide.
+(after! magit
+  (transient-suffix-put 'magit-branch "n" :key "N")   ; create only (was n)
+  (transient-suffix-put 'magit-branch "c" :key "n")   ; create + checkout
+  (transient-suffix-put 'magit-rebase "e" :key "r"))  ; r r = rebase elsewhere
+
+;; `y s' (magit-copy-section-value) resolves a branch section to its hash --
+;; magit-extras.el does (setq value (magit-rev-parse ... value)) and only keeps
+;; the ref name behind a prefix arg. This copies the name directly.
+(defun my/magit-copy-ref-name ()
+  "Copy the reference name of the branch or tag at point, not its hash."
+  (interactive)
+  (let ((section (magit-current-section)))
+    (if (magit-section-match '(branch tag) section)
+        (kill-new (message "%s" (oref section value)))
+      (user-error "No branch or tag at point"))))
+
+(after! magit
+  (evil-define-key 'normal magit-mode-map (kbd "y n") #'my/magit-copy-ref-name))
+
 ;; Navigate across windows with avy
 (setq! avy-all-windows 't)
 
