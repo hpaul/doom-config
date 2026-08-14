@@ -595,6 +595,20 @@ if Magit is disabled."
 
 (advice-add 'ws-start :filter-args #'+claude-code-ide--ws-start-catch-all)
 
+;; Doom exempts `vterm-mode' from these three, but nothing teaches them about
+;; `ghostel-mode' (corfu/config.el:71, nav-flash/config.el:9, evil/config.el:403),
+;; so without this, completion, nav-flash and evil-escape all fire inside
+;; terminal buffers that used to be exempt.
+(after! corfu
+  (when-let* ((not-clause (assq 'not global-corfu-modes)))
+    (cl-pushnew 'ghostel-mode (cdr not-clause))))
+
+(after! nav-flash
+  (add-to-list '+nav-flash-exclude-modes 'ghostel-mode))
+
+(after! evil-escape
+  (add-to-list 'evil-escape-excluded-major-modes 'ghostel-mode))
+
 ;; Mirrors Doom's own terminal popup rule (term/vterm/config.el:18), on its own
 ;; vslot so Claude and a `<leader> o t' terminal don't evict each other.
 (set-popup-rule! "^\\*claude-code" :size 0.25 :vslot -5 :select t :quit nil :ttl 0)
