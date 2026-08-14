@@ -917,12 +917,46 @@ still pays for the read."
                   rows)))
         (sort rows (lambda (a b) (time-less-p (nth 1 b) (nth 1 a))))))))
 
+(defun +claude-code-ide--instance-name-from-title (title project-dir)
+  "Turn TITLE into an instance name that is free in PROJECT-DIR.
+Nil when TITLE cannot yield a usable one, which leaves auto-numbering
+to the package.  Mirrors the validation in
+`claude-code-ide--read-instance-name' (claude-code-ide.el:825-830):
+`[', `]', `*' and control characters are rejected outright, and a purely
+numeric name collides with the auto-number slots."
+  (when title
+    (let* ((clean (string-trim (replace-regexp-in-string "[][*[:cntrl:]]" "" title)))
+           ;; Drop the trailing partial word so the buffer name reads as a
+           ;; phrase: "Integrate Claude Code", not "Integrate Claude Code wi".
+           (clean (string-trim
+                   (if (<= (length clean) 24)
+                       clean
+                     (let ((cut (substring clean 0 24)))
+                       (if (string-match "\\`\\(.+\\) [^ ]*\\'" cut)
+                           (match-string 1 cut)
+                         cut)))))
+           (taken (mapcar #'claude-code-ide-mcp-session-instance-name
+                          (claude-code-ide-mcp--sessions-for-project project-dir))))
+      (unless (or (string-empty-p clean)
+                  (string-match-p "\\`[0-9]+\\'" clean))
+        (let ((name clean) (n 1))
+          ;; Resuming the same conversation twice must not produce two
+          ;; instances that `claude-code-ide--session-display-name' renders
+          ;; identically -- the switchers key off that string.
+          (while (member name taken)
+            (setq n (1+ n)
+                  name (format "%s %d" clean n)))
+          name)))))
+
 (defun +claude-code-ide-resume-from-list ()
   "Resume one of this project's past Claude sessions in a new instance.
-Lists them newest first, by the title Claude gave the conversation."
+Lists them newest first, by the title Claude gave the conversation, and
+names the instance after it.  With a prefix argument, ask for the name
+the way the package does."
   (interactive)
   (let* ((project-dir (claude-code-ide--get-working-directory))
-         (rows (+claude-code-ide--transcripts project-dir)))
+         (rows (+claude-code-ide--transcripts project-dir))
+         (prompt-for-name current-prefix-arg))
     (unless rows
       (user-error "No past Claude sessions for %s" (abbreviate-file-name project-dir)))
     (let* ((candidates
@@ -934,7 +968,7 @@ Lists them newest first, by the title Claude gave the conversation."
                                     (format-time-string "%m-%d %H:%M" time)
                                     (or title "(untitled)")
                                     (substring id 0 8))
-                            id))
+                            (cons id title)))
                     rows))
            ;; `identity' as the sort function keeps our recency order; vertico
            ;; would otherwise re-sort by history and length.
@@ -944,14 +978,28 @@ Lists them newest first, by the title Claude gave the conversation."
                                    (cycle-sort-function . identity))
                       (complete-with-action action candidates string predicate))))
            (choice (completing-read "Resume Claude session: " table nil t))
-           (id (cdr (assoc choice candidates)))
+           (entry (cdr (assoc choice candidates)))
+           (id (car entry))
+           (name (+claude-code-ide--instance-name-from-title (cdr entry) project-dir))
            ;; No advice needed: `claude-code-ide--build-claude-command' appends
            ;; these flags verbatim (claude-code-ide.el:1150), so the instance is
            ;; built exactly like any other -- MCP server, popup, bookkeeping.
            (claude-code-ide-cli-extra-flags
             (string-trim (concat claude-code-ide-cli-extra-flags
                                  " --resume " (shell-quote-argument id)))))
-      (claude-code-ide--start-session))))
+      ;; `claude-code-ide--start-session' prompts for a name whenever the
+      ;; project already has an instance (claude-code-ide.el:1397) -- which is
+      ;; the normal case when resuming. We already know what to call it, so
+      ;; answer the reader instead of asking. `current-prefix-arg' is consumed
+      ;; here rather than passed through: it would otherwise force the prompt
+      ;; via the same condition, which is exactly what it should do.
+      (if prompt-for-name
+          (claude-code-ide--start-session nil nil)
+        (cl-letf (((symbol-function 'claude-code-ide--read-instance-name)
+                   (lambda (project-dir &rest _)
+                     (or name (claude-code-ide--auto-instance-name project-dir))))
+                  (current-prefix-arg nil))
+          (claude-code-ide--start-session nil nil))))))
 
 ;; The three Session Management entries of `claude-code-ide-menu' worth reaching
 ;; without leaving the terminal (claude-code-ide-transient.el:325-327), on the
