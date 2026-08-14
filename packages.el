@@ -79,13 +79,6 @@
 (package! claude-code-ide :recipe
   (:host github :repo "manzaltu/claude-code-ide.el"))
 
-;; libghostty-backed terminal; used as claude-code-ide's backend. evil-ghostel
-;; lives in the same repo and is what makes ESC routable to evil.
-(package! ghostel :recipe
-  (:host github :repo "dakra/ghostel" :files ("lisp/*.el")))
-(package! evil-ghostel :recipe
-  (:host github :repo "dakra/ghostel" :files ("extensions/evil-ghostel/*.el")))
-
 (package! kdl :recipe
   (:host github :repo "taquangtrung/emacs-kdl-mode" :branch "main"))
 

@@ -154,9 +154,6 @@
 ;; they are implemented.
 ;;
 
-;; Print everything in vterm as soon as it gets out of the terminal sessions
-(setq vterm-timer-delay 0.01)
-
 ;; Open Dired for the current file’s folder with the `-` key
 (after! doom
   (map! :map (prog-mode-map markdown-mode-map text-mode-map)
@@ -566,26 +563,9 @@ if Magit is disabled."
         claude-code-ide-use-side-window nil)
   (claude-code-ide-emacs-tools-setup))
 
-;; Without this hook `evil-ghostel-mode' never turns on, and
-;; `claude-code-ide-ghostel-evil-escape' is a no-op (it only applies when the
-;; mode is active in the buffer -- claude-code-ide.el:536).
-(use-package! evil-ghostel
-  :after (ghostel evil)
-  :hook (ghostel-mode . evil-ghostel-mode))
-
-;; Push ghostel's VT engine through the rest of Emacs, not just Claude:
-;; eshell's visual commands (less, htop, ...) run in ghostel buffers, compile
-;; renders through the same engine, and comint uses ghostel's VT parser in
-;; place of `ansi-color-process-output'. Deferred to `doom-first-buffer' to
-;; keep them off the startup path.
-(use-package! ghostel-eshell
-  :hook (eshell-load . ghostel-eshell-visual-command-mode))
-
-(use-package! ghostel-compile
-  :hook (doom-first-buffer . ghostel-compile-global-mode))
-
-(use-package! ghostel-comint
-  :hook (doom-first-buffer . ghostel-comint-global-mode))
+;; `evil-ghostel-mode' (which `claude-code-ide-ghostel-evil-escape' needs to be
+;; active in the buffer -- claude-code-ide.el:536) and the comint/compile/eshell
+;; integration both come from `:term (ghostel +everywhere)' in init.el.
 
 ;; claude-code-ide registers only `^/mcp\(/.*\)?$' handlers with `ws-start'
 ;; (claude-code-ide-mcp-http-server.el:90), and emacs-web-server answers every
@@ -615,8 +595,8 @@ if Magit is disabled."
 
 (advice-add 'ws-start :filter-args #'+claude-code-ide--ws-start-catch-all)
 
-;; Mirrors Doom's own vterm rule (term/vterm/config.el:18), separate vslot so
-;; Claude and a vterm popup don't evict each other.
+;; Mirrors Doom's own terminal popup rule (term/vterm/config.el:18), on its own
+;; vslot so Claude and a `<leader> o t' terminal don't evict each other.
 (set-popup-rule! "^\\*claude-code" :size 0.25 :vslot -5 :select t :quit nil :ttl 0)
 
 (map! :leader
