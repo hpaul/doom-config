@@ -123,6 +123,11 @@
 ;; change `org-directory'. It must be set before org loads!
 (setq org-directory "~/org/")
 
+;; A directory in `org-agenda-files' is scanned one level deep only, so
+;; per-project folders under ~/org/projects/ have to be listed explicitly.
+(after! org
+  (setq org-agenda-files (list "~/org/" "~/org/projects/sogood/")))
+
 ;; Whenever you reconfigure a package, make sure to wrap your config in an
 ;; `after!' block, otherwise Doom's defaults may override your settings. E.g.
 ;;
@@ -634,6 +639,17 @@ if Magit is disabled."
         ;; side-window code, so it behaves exactly like `<leader> o t'.
         claude-code-ide-use-side-window nil)
   (claude-code-ide-emacs-tools-setup)
+
+  ;; `SPC o c n' — new session in the current project. Sits under `o' with the
+  ;; other "open a thing" keys; `SPC o t' opens a terminal the same way.
+  (map! :leader
+        (:prefix ("o c" . "claude")
+         :desc "New session"       "n" #'claude-code-ide
+         :desc "Toggle window"     "c" #'claude-code-ide-toggle
+         :desc "Resume a session"  "r" #'claude-code-ide-resume
+         :desc "List sessions"     "l" #'claude-code-ide-list-sessions
+         :desc "Stop session"      "k" #'claude-code-ide-stop
+         :desc "Menu"              "m" #'claude-code-ide-menu))
 
   ;; The Emacs MCP server only dispatches initialize/tools/list/tools/call
   ;; (claude-code-ide-mcp-http-server.el:181-193), but the Claude CLI probes
