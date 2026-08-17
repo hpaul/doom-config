@@ -640,17 +640,6 @@ if Magit is disabled."
         claude-code-ide-use-side-window nil)
   (claude-code-ide-emacs-tools-setup)
 
-  ;; `SPC o c n' — new session in the current project. Sits under `o' with the
-  ;; other "open a thing" keys; `SPC o t' opens a terminal the same way.
-  (map! :leader
-        (:prefix ("o c" . "claude")
-         :desc "New session"       "n" #'claude-code-ide
-         :desc "Toggle window"     "c" #'claude-code-ide-toggle
-         :desc "Resume a session"  "r" #'claude-code-ide-resume
-         :desc "List sessions"     "l" #'claude-code-ide-list-sessions
-         :desc "Stop session"      "k" #'claude-code-ide-stop
-         :desc "Menu"              "m" #'claude-code-ide-menu))
-
   ;; The Emacs MCP server only dispatches initialize/tools/list/tools/call
   ;; (claude-code-ide-mcp-http-server.el:181-193), but the Claude CLI probes
   ;; resources/list and prompts/list right after the handshake. Those fall to
@@ -1045,13 +1034,23 @@ the way the package does."
                                      (and (bound-and-true-p claude-code-ide--session)
                                           map)))))
 
-;; A key is either a command or a prefix, never both, so the menu moves down to
-;; `o c c' to make room for the cycling pair.
+;; Every `o c' binding lives here, not split across the `after!' block above:
+;; two `map!' forms on one prefix silently resolve by evaluation order, which is
+;; not something a reader should have to work out.
+;;
+;; A key is either a command or a prefix, never both, so the menu sits on
+;; `o c c' rather than on `o c' itself, to make room for the cycling pair.
+;; `claude-code-ide-resume' is deliberately absent: it opens the CLI's own TUI
+;; picker, which the menu still reaches, and `r' is better spent on our list.
 (map! :leader
       (:prefix ("o c" . "Claude Code")
-       :desc "Claude Code menu"     "c" #'claude-code-ide-menu
+       :desc "Claude Code menu"        "c" #'claude-code-ide-menu
+       :desc "New session"             "n" #'claude-code-ide
+       :desc "Toggle window"           "t" #'claude-code-ide-toggle
        ;; Also on the leader, not just `C-c c r': resuming is exactly what you
        ;; reach for when the project has no terminal to press `C-c' in.
        :desc "Resume past session"     "r" #'+claude-code-ide-resume-from-list
+       :desc "List sessions"           "l" #'claude-code-ide-list-sessions
+       :desc "Stop session"            "k" #'claude-code-ide-stop
        :desc "Previous Claude session" "[" #'+claude-code-ide-prev-session
        :desc "Next Claude session"     "]" #'+claude-code-ide-next-session))
