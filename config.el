@@ -276,11 +276,16 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 ;; `define-key' do nothing to them; `transient-suffix-put' is the lever.
 ;; lazygit muscle memory: `n' creates a branch AND switches to it, and `r'
 ;; rebases onto another branch. Magit's defaults are `c' and `r e'.
-;; Order matters: n -> N must happen before c -> n, or the keys collide.
+;;
+;; Locate the suffixes by command, never by key: a key lookup is a lookup of the
+;; very thing being reassigned, so a second evaluation chases keys that have
+;; already moved and dies with "c not found in magit-branch" -- which took out
+;; `doom/reload' entirely. By command it is idempotent, and the old ordering
+;; constraint (n -> N before c -> n) goes away with it.
 (after! magit
-  (transient-suffix-put 'magit-branch "n" :key "N")   ; create only (was n)
-  (transient-suffix-put 'magit-branch "c" :key "n")   ; create + checkout
-  (transient-suffix-put 'magit-rebase "e" :key "r"))  ; r r = rebase elsewhere
+  (transient-suffix-put 'magit-branch #'magit-branch-create       :key "N")
+  (transient-suffix-put 'magit-branch #'magit-branch-and-checkout :key "n")
+  (transient-suffix-put 'magit-rebase #'magit-rebase-branch       :key "r"))
 
 ;; `y s' (magit-copy-section-value) resolves a branch section to its hash --
 ;; magit-extras.el does (setq value (magit-rev-parse ... value)) and only keeps
