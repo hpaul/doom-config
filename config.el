@@ -583,6 +583,68 @@ prevent eager expansion."
 
 
 ;; -------------------------------------------------------------------
+;;  Workspaces as tabs across the top of the frame
+;; -------------------------------------------------------------------
+;; `tab-bar-mode' owns the strip above the frame, but its *tabs* are frame-local
+;; window configurations -- unrelated to persp-mode's perspectives, which is what
+;; Doom's workspaces are. So take the bar and ignore the tabs: `tab-bar-format'
+;; is just a list of functions returning strings, and Doom already has a renderer
+;; in `+workspace--tabline' (workspaces.el:472), faces and all.
+;;
+;; Clicking a tab does nothing. tab-bar's mouse handling is hardcoded to real
+;; tabs, and the only working fix computes each tab's pixel width by hand. Not
+;; worth it for a bar driven entirely from `SPC TAB'.
+(after! persp-mode
+  (defun +workspace-tab-bar-line ()
+    (+workspace--tabline))
+
+  ;; The bar redraws when its *string* changes, not when a face does -- so a
+  ;; switch would otherwise leave the previous tab highlighted. Emitting the
+  ;; current name invisibly changes the string too, forcing the redraw.
+  (defun +workspace-tab-bar-force-redraw ()
+    (propertize (+workspace-current-name) 'invisible t))
+
+  (setq tab-bar-format '(+workspace-tab-bar-line
+                         tab-bar-format-align-right
+                         +workspace-tab-bar-force-redraw))
+
+  ;; Only worth screen space once there is a choice to make. Deleting down to
+  ;; one workspace leaves the bar up until the next switch: `persp-before-kill-
+  ;; functions' runs while the count is still high.
+  (defun +workspace-tab-bar-toggle-h (&rest _)
+    (tab-bar-mode (if (> (length (+workspace-list-names)) 1) +1 -1)))
+  (dolist (hook '(persp-created-functions persp-activated-functions
+                  persp-renamed-functions persp-before-kill-functions))
+    (add-hook hook #'+workspace-tab-bar-toggle-h))
+
+  ;; `SPC p p' already names a workspace after its project (workspaces.el:556);
+  ;; `SPC TAB n' falls back to `#1', `#2'. Name it after the project too -- but
+  ;; uniquified, or opening a second workspace on the same project would hit
+  ;; `+workspace/new's "already exists" error (workspaces.el:335).
+  (defun +workspace--project-name ()
+    "Return the current project's name, made unique among open workspaces."
+    (when-let* ((base (and (doom-project-p) (doom-project-name))))
+      (let ((name base) (n 1))
+        (while (+workspace-exists-p name)
+          (setq n (1+ n) name (format "%s %d" base n)))
+        name)))
+
+  (defadvice! +workspace-new-named-after-project-a (fn &optional name clone-p)
+    "Give `SPC TAB n' the project's name instead of a generated id."
+    :around #'+workspace/new
+    (funcall fn (or name (+workspace--project-name)) clone-p))
+
+  ;; The list is on screen permanently now; echoing it on every switch is noise.
+  (advice-add #'+workspace/display :override #'ignore))
+
+;; `highlight' is loud in modus-operandi-tinted. Enough contrast to find the
+;; current workspace at a glance, not enough to pull the eye off the buffer.
+(custom-set-faces!
+  '(+workspace-tab-face :inherit mode-line-inactive :weight light)
+  '(+workspace-tab-selected-face :inherit mode-line-emphasis :weight bold))
+
+
+;; -------------------------------------------------------------------
 ;;  Yank (copy) the current Git branch name
 ;; -------------------------------------------------------------------
 ;; Place this anywhere after `magit' has been loaded (e.g. at the end
