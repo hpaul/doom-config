@@ -296,6 +296,21 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (after! magit
   (evil-define-key 'normal magit-mode-map (kbd "y n") #'my/magit-copy-ref-name))
 
+;; Umbrella repos (~/apps/sogood) hold their sub-projects as submodules, but
+;; magit's default `magit-status-sections-hook' has no module inserters at all,
+;; so a superproject status says nothing about them. `magit-insert-modules'
+;; expands `magit-module-sections-hook', which already carries the overview plus
+;; the unpulled/unpushed pairs.
+;;
+;; This only pays off with `ignore' relaxed in .gitmodules -- at `all' git itself
+;; reports nothing for magit to render. Those repos are on `dirty': moved
+;; gitlinks show, uncommitted worktree churn inside a submodule does not.
+(after! magit
+  (magit-add-section-hook 'magit-status-sections-hook
+                          #'magit-insert-modules
+                          #'magit-insert-stashes
+                          'append))
+
 ;; Navigate across windows with avy
 (setq! avy-all-windows 't)
 
