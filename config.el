@@ -363,9 +363,23 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 
 (setq! web-mode-enable-current-element-highlight t)
 
-;; Open projectile dispatcher when opening a project
+;; Open dired when opening a project -- but *through* the workspaces module.
+;; Doom points `projectile-switch-project-action' at `+workspaces-switch-to-
+;; project-h' (ui/workspaces/config.el:179); that handler is what gives a project
+;; its own workspace and names it after the project. Setting the action directly
+;; to `projectile-dired' quietly replaced it, so `SPC p p' opened dired and never
+;; touched workspaces at all -- which is why they kept their `#1' names.
+;; `+workspaces-switch-project-function' is the seam the module provides for the
+;; "and then do this" part, and it is called with the project root.
+(defun +workspaces-dired-h (dir)
+  "Open DIR in dired, after the workspace for it has been set up."
+  (dired dir))
+
 (after! projectile
-  (setq! projectile-switch-project-action #'projectile-dired))
+  (setq! projectile-switch-project-action #'+workspaces-switch-to-project-h))
+
+(after! persp-mode
+  (setq +workspaces-switch-project-function #'+workspaces-dired-h))
 
 ;; Umbrella workspaces -- one directory holding several sibling git repos
 ;; (~/apps/sogood) that should behave as a SINGLE project.
