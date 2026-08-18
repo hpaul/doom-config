@@ -900,9 +900,9 @@ visited, else the first session in order."
   (interactive)
   (+claude-code-ide-cycle-session -1))
 
-;; The same ring, reachable without leaving the terminal: `C-c [' / `C-c ]'
-;; inside any ghostel buffer walks this project's terminals, Claude sessions
-;; and plain shells alike.
+;; The same ring, reachable without leaving the terminal. See the keybinding
+;; note further down: `C-c [t' / `C-c ]t' walks this project's terminals,
+;; Claude sessions and plain shells alike.
 ;;
 ;; `C-c' is in `ghostel-keymap-exceptions' (ghostel.el:689), so it stays with
 ;; Emacs, and every binding ghostel puts under it carries a modifier -- bare
@@ -1102,51 +1102,71 @@ the way the package does."
                   (current-prefix-arg nil))
           (claude-code-ide--start-session nil nil))))))
 
-;; The three Session Management entries of `claude-code-ide-menu' worth reaching
-;; without leaving the terminal (claude-code-ide-transient.el:325-327), on the
-;; same letters the menu uses.  `r' is the one improvement: our list rather than
-;; the CLI's TUI picker, which stays reachable from the menu itself.
-(defvar +claude-code-ide-terminal-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "s" #'claude-code-ide)
-    (define-key map "c" #'claude-code-ide-continue)
-    (define-key map "r" #'+claude-code-ide-resume-from-list)
-    map)
-  "Keymap behind `C-c c' inside a Claude Code terminal.")
+;; One rule for every ring: `[' / `]' pick the direction, the letter after it
+;; names the thing -- Doom's own family, `[w' workspace, `[b' buffer, `[d' hunk,
+;; `[e' error, and so on. Two rings had no letter, so they take one here:
+;;
+;;   [t / ]t   this project's terminals
+;;   [c / ]c   this project's Claude sessions
+;;
+;; Both letters were already spoken for, so their Doom defaults move up a case
+;; rather than disappear: hl-todo to `[T', comment motion to `[C'. Terminals and
+;; Claude are reached far more often than either, and they get the unshifted key.
+;;
+;; Inside a terminal the same motions work with `C-c' in front, because `C-c' is
+;; the one prefix ghostel hands back to Emacs (ghostel.el:689). That is the whole
+;; convention: `C-c' re-enters Emacs, everything after it is what you would type
+;; in normal state. `C-c [w' is `[w'; nothing extra to remember.
+(map! :n "[t" #'+ghostel-prev-buffer
+      :n "]t" #'+ghostel-next-buffer
+      :n "[c" #'+claude-code-ide-prev-session
+      :n "]c" #'+claude-code-ide-next-session
+      ;; displaced, not dropped
+      :n "[T" #'hl-todo-previous
+      :n "]T" #'hl-todo-next
+      :n "[C" #'+evil/previous-comment
+      :n "]C" #'+evil/next-comment)
 
 (after! ghostel
+  ;; `C-c [' was the terminal ring itself; it has to stop being a command before
+  ;; it can be a prefix. Unbinding explicitly keeps a reload idempotent.
+  (define-key ghostel-mode-map (kbd "C-c [") nil)
+  (define-key ghostel-mode-map (kbd "C-c ]") nil)
   (map! :map ghostel-mode-map
-        "C-c [" #'+ghostel-prev-buffer
-        "C-c ]" #'+ghostel-next-buffer)
+        "C-c [ w" #'+workspace/switch-left
+        "C-c ] w" #'+workspace/switch-right
+        "C-c [ t" #'+ghostel-prev-buffer
+        "C-c ] t" #'+ghostel-next-buffer
+        "C-c [ c" #'+claude-code-ide-prev-session
+        "C-c ] c" #'+claude-code-ide-next-session)
 
-  ;; `C-c c' must exist only in Claude terminals, but there is no hook to hang a
-  ;; minor mode on -- `claude-code-ide--session' is set by the caller *after* the
-  ;; buffer is created (claude-code-ide.el:1430), so `ghostel-mode-hook' sees nil.
-  ;; A `:filter' menu-item resolves the binding at lookup time instead: in a plain
-  ;; shell it returns nil and the key is simply undefined.
+  ;; `C-c c' *is* `SPC o c' -- the leader's own submap, not a copy of it. A copy
+  ;; is how the two drifted: the same command sat on `s' here and `n' there, and
+  ;; `c' meant "continue" here but "menu" there. The `:filter' resolves the
+  ;; submap at lookup time, so it cannot go stale and does not care that the
+  ;; leader map is defined further down this file.
   (define-key ghostel-mode-map (kbd "C-c c")
-              `(menu-item "" ,+claude-code-ide-terminal-map
-                          :filter ,(lambda (map)
-                                     (and (bound-and-true-p claude-code-ide--session)
-                                          map)))))
+              `(menu-item "" nil
+                          :filter ,(lambda (_)
+                                     (lookup-key doom-leader-map (kbd "o c"))))))
 
 ;; Every `o c' binding lives here, not split across the `after!' block above:
 ;; two `map!' forms on one prefix silently resolve by evaluation order, which is
 ;; not something a reader should have to work out.
 ;;
 ;; A key is either a command or a prefix, never both, so the menu sits on
-;; `o c c' rather than on `o c' itself, to make room for the cycling pair.
+;; `o c c' rather than on `o c' itself.
 ;; `claude-code-ide-resume' is deliberately absent: it opens the CLI's own TUI
 ;; picker, which the menu still reaches, and `r' is better spent on our list.
+;; Cycling is not here either -- that is `[C' / `]C', with every other ring.
 (map! :leader
       (:prefix ("o c" . "Claude Code")
        :desc "Claude Code menu"        "c" #'claude-code-ide-menu
        :desc "New session"             "n" #'claude-code-ide
+       :desc "Continue last session"   "C" #'claude-code-ide-continue
        :desc "Toggle window"           "t" #'claude-code-ide-toggle
        ;; Also on the leader, not just `C-c c r': resuming is exactly what you
        ;; reach for when the project has no terminal to press `C-c' in.
        :desc "Resume past session"     "r" #'+claude-code-ide-resume-from-list
        :desc "List sessions"           "l" #'claude-code-ide-list-sessions
-       :desc "Stop session"            "k" #'claude-code-ide-stop
-       :desc "Previous Claude session" "[" #'+claude-code-ide-prev-session
-       :desc "Next Claude session"     "]" #'+claude-code-ide-next-session))
+       :desc "Stop session"            "k" #'claude-code-ide-stop))
