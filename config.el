@@ -164,6 +164,36 @@
   (map! :map (prog-mode-map markdown-mode-map text-mode-map)
         :n "-" #'dired-jump))
 
+;; -------------------------------------------------
+;;  A reachable, stable Emacs server
+;; -------------------------------------------------
+;; Several Emacs instances run at once here, and they cannot share one socket.
+;; Nothing about a process is both unique *and* stable across restarts -- a PID
+;; is unique but changes, the launch directory is stable but identical for every
+;; instance -- so the name has to come from how you start it:
+;;
+;;   emacs                        -> `emacsclient' (the default socket)
+;;   EMACS_SERVER_NAME=sogood emacs -> `emacsclient -s sogood', forever
+;;
+;; Without the variable nothing changes, so the primary instance and every
+;; existing `emacsclient' invocation keep working.
+(setq server-name (or (getenv "EMACS_SERVER_NAME") "server"))
+
+;; Start it if that name is free. Doom does not start a server on its own, which
+;; is why one of these instances was unreachable and `emacsclient' kept landing
+;; in a sibling without saying so.
+(add-hook! 'doom-first-input-hook
+  (defun +server-start-h ()
+    (require 'server)
+    (cond ((process-live-p server-process))  ; ours already, nothing to do
+          ;; `server-running-p' is true for a socket held by *another* Emacs, so
+          ;; this branch is the one that used to happen silently: no server here,
+          ;; and `emacsclient' quietly answering from a sibling instead.
+          ((server-running-p server-name)
+           (message "Emacs server `%s' belongs to another instance -- set EMACS_SERVER_NAME to get your own"
+                    server-name))
+          (t (server-start)))))
+
 ;; Browse code at point on corresponding forge (GitHub/Gitlab/etc)
 (after! doom
   (require 'browse-at-remote))
