@@ -811,6 +811,16 @@ if Magit is disabled."
 ;; what produces "Native module not found" on the next check.
 (setq ghostel-module-directory (expand-file-name "ghostel/" doom-data-dir))
 
+;; Kitty renders this TUI in JetBrainsMono and it reads better there. Only the
+;; terminal moves -- `ghostel-default' is remapped over `default' per buffer
+;; (ghostel.el:5157), so the rest of Emacs stays on JuliaMono. :height 140 is
+;; kitty's `font_size 14.0'. Kitty's `font_features' (+zero +ss20 +onum +cv06)
+;; have no Emacs equivalent, so the fine glyph detail still differs.
+(after! ghostel
+  (set-face-attribute 'ghostel-default nil
+                      :family "JetBrainsMono Nerd Font"
+                      :height 140))
+
 ;; A CLAUDE_* set leaks into Emacs' `process-environment' from whichever Claude
 ;; session last touched it, and every terminal we spawn inherits it. The
 ;; CHILD_SESSION marker makes Claude treat the session as a sub-agent and skip
