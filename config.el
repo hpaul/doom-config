@@ -890,66 +890,10 @@ if Magit is disabled."
 ;; vslot so Claude and a `<leader> o t' terminal don't evict each other.
 (set-popup-rule! "^\\*claude-code" :size 0.25 :vslot -5 :select t :quit nil :ttl 0)
 
-;; `claude-code-ide-mcp--sessions-for-project' documents its return value as
-;; unordered (claude-code-ide-mcp.el:162) -- it just walks a hash table -- and
-;; the package's own switchers sort by last-used, which reshuffles the list on
-;; every jump. Cycling needs a *stable* order, so sort by display name.
-(defun +claude-code-ide--ordered-sessions ()
-  "Return this project's Claude sessions in a stable, name-sorted order."
-  (sort (claude-code-ide-mcp--sessions-for-project
-         (claude-code-ide--get-working-directory))
-        (lambda (a b)
-          (string< (claude-code-ide--session-display-name a)
-                   (claude-code-ide--session-display-name b)))))
-
-(defun +claude-code-ide-cycle-session (n)
-  "Switch to the Nth session after the current one, wrapping around.
-The starting point is the Claude terminal at point, else the last one
-visited, else the first session in order."
-  (claude-code-ide--cleanup-dead-sessions)
-  (let ((sessions (+claude-code-ide--ordered-sessions)))
-    (unless sessions
-      (user-error "No Claude Code session for this project"))
-    (let* ((current (or (claude-code-ide--buffer-session)
-                        (cl-find claude-code-ide--last-accessed-buffer sessions
-                                 :key #'claude-code-ide-mcp-session-buffer)))
-           ;; With no anchor, `[' and `]' should both land on the first
-           ;; session rather than skipping past it.
-           (index (if current
-                      (mod (+ (cl-position current sessions) n) (length sessions))
-                    0))
-           (session (nth index sessions))
-           (buffer (claude-code-ide-mcp-session-buffer session)))
-      (unless (buffer-live-p buffer)
-        (user-error "Buffer for %s no longer exists"
-                    (claude-code-ide--session-display-name session)))
-      (select-window (or (get-buffer-window buffer)
-                         (claude-code-ide--display-buffer-in-side-window buffer)))
-      (claude-code-ide--touch-session session)
-      (message "Claude instance %d/%d: %s"
-               (1+ index) (length sessions)
-               (claude-code-ide--session-display-name session)))))
-
-(defun +claude-code-ide-next-session ()
-  "Switch to the next Claude Code session of this project."
-  (interactive)
-  (+claude-code-ide-cycle-session 1))
-
-(defun +claude-code-ide-prev-session ()
-  "Switch to the previous Claude Code session of this project."
-  (interactive)
-  (+claude-code-ide-cycle-session -1))
-
-;; The same ring, reachable without leaving the terminal. See the keybinding
-;; note further down: `C-c [t' / `C-c ]t' walks this project's terminals,
-;; Claude sessions and plain shells alike.
-;;
-;; `C-c' is in `ghostel-keymap-exceptions' (ghostel.el:689), so it stays with
-;; Emacs, and every binding ghostel puts under it carries a modifier -- bare
-;; `[' and `]' are free. Binding on `ghostel-mode-map' covers semi-char, line
-;; and readonly modes, which all inherit it. Char mode is the exception: its
-;; keymap has no parent and swallows `C-c' whole (ghostel.el:1406), so these
-;; go dark between `C-c M-d' and `C-c C-j'.
+;; Every terminal this project owns is a ghostel buffer -- Claude sessions and
+;; plain shells alike -- so one ring reaches all of them. See the keybinding
+;; note further down: `C-{' / `C-}' walks it, from normal state and from inside
+;; a terminal both.
 (defun +ghostel--buffer-project (buffer)
   "Return BUFFER's project root, honouring `+project-umbrella-root'.
 Claude terminals answer from their session, which is pinned at spawn
@@ -1000,6 +944,22 @@ time and so survives a `cd' inside the shell."
   "Switch to the previous ghostel terminal of this project."
   (interactive)
   (+ghostel-cycle-buffer -1))
+
+(defun +ghostel-new-buffer ()
+  "Open a new terminal at this project's root, and switch to it.
+`default-directory' follows the shell, so a `cd' inside a terminal would
+otherwise decide where the next one starts.  `+ghostel--buffer-project'
+answers from the Claude session instead, which is pinned at spawn time.
+
+Displayed the same way the ring displays: `pop-to-buffer', so Doom's popup
+rules place it and a dedicated window is never fought over."
+  (interactive)
+  (let ((default-directory (or (+ghostel--buffer-project (current-buffer))
+                               default-directory)))
+    (dlet ((ghostel-buffer-name (ghostel--project-buffer-name default-directory)))
+      ;; A non-numeric prefix arg makes `ghostel' create a buffer instead of
+      ;; reusing the one that name resolves to (ghostel.el:5486).
+      (pop-to-buffer (save-window-excursion (ghostel '(4)))))))
 
 ;; -----------------------------------------------------------------------------
 ;; Resume a past Claude session from a completing-read list
@@ -1142,43 +1102,45 @@ the way the package does."
                   (current-prefix-arg nil))
           (claude-code-ide--start-session nil nil))))))
 
-;; One rule for every ring: `[' / `]' pick the direction, the letter after it
-;; names the thing -- Doom's own family, `[w' workspace, `[b' buffer, `[d' hunk,
-;; `[e' error, and so on. Two rings had no letter, so they take one here:
+;; Terminals answer to the same chords kitty uses, and to nothing else:
 ;;
-;;   [t / ]t   this project's terminals
-;;   [c / ]c   this project's Claude sessions
+;;   C-{ / C-}        previous / next terminal, one ring for the whole project
+;;   C-S-<return>     new terminal at the project root
 ;;
-;; Both letters were already spoken for, so their Doom defaults move up a case
-;; rather than disappear: hl-todo to `[T', comment motion to `[C'. Terminals and
-;; Claude are reached far more often than either, and they get the unshifted key.
+;; `C-{' is the ctrl+shift+[ chord spelled the way Emacs receives it -- `{'
+;; already carries Shift, and `C-S-[' resolves to `S-ESC' because `C-[' *is*
+;; ESC. ghostel's modifier loop covers only its named special keys
+;; (ghostel.el:1226), so it never claims `C-{' or `C-}' and they reach Emacs
+;; from inside a terminal untouched. One global binding therefore serves normal
+;; state and the terminal alike, which is why the bracket pair and the `C-c ['
+;; duplicates are both gone -- `[t' / `]t' and `[c' / `]c' are Doom's hl-todo
+;; and comment motions again, unshifted, where a reader expects them.
 ;;
-;; Inside a terminal the same motions work with `C-c' in front, because `C-c' is
-;; the one prefix ghostel hands back to Emacs (ghostel.el:689). That is the whole
-;; convention: `C-c' re-enters Emacs, everything after it is what you would type
-;; in normal state. `C-c [w' is `[w'; nothing extra to remember.
-(map! :n "[t" #'+ghostel-prev-buffer
-      :n "]t" #'+ghostel-next-buffer
-      :n "[c" #'+claude-code-ide-prev-session
-      :n "]c" #'+claude-code-ide-next-session
-      ;; displaced, not dropped
-      :n "[T" #'hl-todo-previous
-      :n "]T" #'hl-todo-next
-      :n "[C" #'+evil/previous-comment
-      :n "]C" #'+evil/next-comment)
+;; `[w' / `]w' stays the workspace ring: it is Doom's, it is a real motion, and
+;; it is the one thing here that isn't a terminal.
+(map! "C-{" #'+ghostel-prev-buffer
+      "C-}" #'+ghostel-next-buffer)
 
 (after! ghostel
+  ;; `<return>' is one of ghostel's special keys, and the loop binds it under
+  ;; every modifier including `C-S-', so this one chord has to be excused before
+  ;; Emacs can see it. The defcustom's :set rebuilds the semi-char keymap
+  ;; (ghostel.el:694), which `setopt' triggers and `setq' would not. Guarded so
+  ;; a reload doesn't grow the list.
+  (unless (member "C-S-<return>" ghostel-keymap-exceptions)
+    (setopt ghostel-keymap-exceptions
+            (cons "C-S-<return>" ghostel-keymap-exceptions)))
+
   ;; `C-c [' was the terminal ring itself; it has to stop being a command before
   ;; it can be a prefix. Unbinding explicitly keeps a reload idempotent.
   (define-key ghostel-mode-map (kbd "C-c [") nil)
   (define-key ghostel-mode-map (kbd "C-c ]") nil)
+  ;; Only the workspace ring needs `C-c' now: `[w' is a Doom motion with no
+  ;; control-key spelling, so the terminal reaches it the long way round.
   (map! :map ghostel-mode-map
         "C-c [ w" #'+workspace/switch-left
         "C-c ] w" #'+workspace/switch-right
-        "C-c [ t" #'+ghostel-prev-buffer
-        "C-c ] t" #'+ghostel-next-buffer
-        "C-c [ c" #'+claude-code-ide-prev-session
-        "C-c ] c" #'+claude-code-ide-next-session)
+        "C-S-<return>" #'+ghostel-new-buffer)
 
   ;; `C-c c' *is* `SPC o c' -- the leader's own submap, not a copy of it. A copy
   ;; is how the two drifted: the same command sat on `s' here and `n' there, and
@@ -1198,7 +1160,7 @@ the way the package does."
 ;; `o c c' rather than on `o c' itself.
 ;; `claude-code-ide-resume' is deliberately absent: it opens the CLI's own TUI
 ;; picker, which the menu still reaches, and `r' is better spent on our list.
-;; Cycling is not here either -- that is `[C' / `]C', with every other ring.
+;; Cycling is not here either -- that is `C-{' / `C-}', with every terminal.
 (map! :leader
       (:prefix ("o c" . "Claude Code")
        :desc "Claude Code menu"        "c" #'claude-code-ide-menu
