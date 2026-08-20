@@ -886,9 +886,19 @@ if Magit is disabled."
 (after! evil-escape
   (add-to-list 'evil-escape-excluded-major-modes 'ghostel-mode))
 
-;; Mirrors Doom's own terminal popup rule (term/vterm/config.el:18), on its own
-;; vslot so Claude and a `<leader> o t' terminal don't evict each other.
+;; Mirrors Doom's own terminal popup rule (term/vterm/config.el:18), and shares
+;; its vslot deliberately: `<leader> o t' is already on -5, so a terminal and
+;; Claude take turns in one window instead of splitting the frame between them.
 (set-popup-rule! "^\\*claude-code" :size 0.25 :vslot -5 :select t :quit nil :ttl 0)
+
+;; `+ghostel-new-buffer' names through `ghostel--project-buffer-name', which is
+;; `*<project>-ghostel*' -- a shape neither rule above matched, so a new terminal
+;; opened in a window of its own rather than over the one it was launched from.
+;; `:height' is spelled out because `window-height' reads `:height', never
+;; `:size' (ui/popup/autoload/settings.el:26); left off, `+popup-defaults' hands
+;; it 0.16 and the popup resizes every time you swap it with a Claude buffer.
+(set-popup-rule! "^\\*[^*]+-ghostel\\*"
+                 :size 0.25 :height 0.25 :vslot -5 :select t :quit nil :ttl 0)
 
 ;; Every terminal this project owns is a ghostel buffer -- Claude sessions and
 ;; plain shells alike -- so one ring reaches all of them. See the keybinding
