@@ -858,6 +858,20 @@ if Magit is disabled."
                       :family "JetBrainsMono Nerd Font"
                       :height 140))
 
+;; Clicking into a terminal with the slightest drag sets the mark, and the mark
+;; becoming active switches the buffer into copy mode (ghostel.el:2257,2688),
+;; which freezes terminal output and makes the buffer read-only. A click meant
+;; only to focus the window should not do that, so neither gesture switches
+;; mode here.
+;;
+;; The cost is in ghostel's own words: a mouse selection is then best-effort,
+;; "could get clobbered by the next redraw, and `M-w' is not bound here".
+;; `C-c C-t' still enters copy mode deliberately when a stable selection is
+;; what you want, and `evil-ghostel' gives visual state there.
+(after! ghostel
+  (setq ghostel-mouse-drag-input-mode nil
+        ghostel-mark-activation-input-mode nil))
+
 ;; A CLAUDE_* set leaks into Emacs' `process-environment' from whichever Claude
 ;; session last touched it, and every terminal we spawn inherits it. The
 ;; CHILD_SESSION marker makes Claude treat the session as a sub-agent and skip
