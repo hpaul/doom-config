@@ -362,10 +362,47 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (setq! projectile-project-search-path '("~/apps/finetune/" "~/apps/clipbook/" "~/apps/sogood/" "~/apps/"))
 
 (after! magit
-  ;; Difftastic
+  ;; Difftastic. Keys land in the `magit-diff' transient, not on the status
+  ;; map: `d M-d' diffs, `d M-c' shows. Bare `M-d' is `kill-word'.
   (use-package difftastic-bindings
     :ensure difftastic ;; or nil if you prefer manual installation
     :config (difftastic-bindings-mode)))
+
+(after! difftastic
+  ;; Both of difftastic's width functions measure a *window*, and neither is the
+  ;; window the buffer ends up in: `difftastic-requested-window-width' sizes for
+  ;; a side-by-side split it guesses at (halving the frame), and the rerun one
+  ;; takes whichever window is selected when the key is pressed -- launching
+  ;; from a magit window in a three-window frame asked for 87 of 175 columns and
+  ;; left half the pane blank. The buffer is pinned to the full-width bottom
+  ;; below, so the frame is the only width that matches it.
+  (defun +difftastic-frame-width ()
+    "Return the frame width, the width a bottom-pinned difftastic buffer gets."
+    (frame-width))
+  (setq difftastic-requested-window-width-function #'+difftastic-frame-width
+        difftastic-rerun-requested-window-width-function #'+difftastic-frame-width
+        ;; `difftastic-pop-to-buffer' only forces the bottom when the requested
+        ;; width is narrower than the content -- which stops being true once the
+        ;; width above is right, and it would start splitting sideways again.
+        difftastic-display-buffer-function
+        (lambda (buffer _requested-width)
+          (pop-to-buffer buffer '(display-buffer-at-bottom))))
+
+  ;; difft's `side-by-side' default collapses to a single column whenever a
+  ;; change is only additions, which is most of them -- two line-number gutters
+  ;; but one pane. `side-by-side-show-both' always keeps both.
+  ;;
+  ;; There is no defcustom for default difft arguments; the package's own route
+  ;; is a double prefix argument (`C-u C-u') to raise a transient and
+  ;; `transient-save' it, which persists to
+  ;; `~/.config/emacs/.local/etc/transient/values' -- outside this repo, and a
+  ;; gesture before every use. Adding the flag where the other standard ones are
+  ;; added keeps it here and needs no prefix. An explicit `--display=' still wins.
+  (define-advice difftastic--add-standard-args
+      (:filter-return (args) +difftastic-two-columns)
+    (if (cl-find-if (lambda (arg) (string-prefix-p "--display=" arg)) args)
+        args
+      (cons "--display=side-by-side-show-both" args))))
 
 (use-package! drag-stuff
     :defer t
