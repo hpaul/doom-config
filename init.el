@@ -17,8 +17,14 @@
 ;; Start profiler
 (setq use-package-compute-statistics t)
 
-;; Early on init disable browser frame
-(add-to-list 'default-frame-alist '(undecorated . t))
+;; Keep the native macOS titlebar: without it the frame can't be dragged or
+;; moved with the mouse.
+;; (add-to-list 'default-frame-alist '(undecorated . t))
+
+;; Twice Emacs' default 80x36 frame. At JuliaMono 16 (9.6px per column,
+;; 18.8px per line) that is 1536x1354px.
+(add-to-list 'default-frame-alist '(width . 160))
+(add-to-list 'default-frame-alist '(height . 72))
 
 (doom! :completion
        (corfu +orderless +icons +dabbrev)  ; complete with cap(f), cape and a flying feather!

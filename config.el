@@ -359,7 +359,7 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (setq! auth-sources '("~/.authinfo"))
 
 ;; Configure folders used for projects
-(setq! projectile-project-search-path '("~/apps/finetune/" "~/apps/clipbook/" "~/apps/sogood/" "~/apps/"))
+(setq! projectile-project-search-path '("~/apps/finetune/" "~/apps/ridesonclouds/" "~/apps/clipbook/" "~/apps/sogood/" "~/apps/"))
 
 (after! magit
   ;; Difftastic. Keys land in the `magit-diff' transient, not on the status
@@ -717,35 +717,37 @@ prevent eager expansion."
 ;; Place this anywhere after `magit' has been loaded (e.g. at the end
 ;; of your config file or inside an `after! magit' block).
 
-(after! magit
-  (defun my/copy-git-branch-name ()
-    "Copy the name of the current Git branch to the kill‑ring.
+(defun my/copy-git-branch-name ()
+  "Copy the name of the current Git branch to the kill‑ring.
 If the current buffer is not visiting a file inside a Git repository,
 display a helpful message instead.
 
 The command works with both Magit and plain VC‑Git, so it is safe even
 if Magit is disabled."
-    (interactive)
-    (let* ((git-root (magit-toplevel))          ; directory of the repo or nil
-           (branch
-            (cond
-             ;; Magit knows the branch already
-             (git-root
-              (magit-get-current-branch))
-             ;; Fallback to VC – works only when VC is enabled for git
-             ((and buffer-file-name
-                   (vc-git-root (buffer-file-name)))
-              (car (vc-git-branches)))
-             (t nil))))
-      (if (and branch (stringp branch) (not (string-empty-p branch)))
-          (progn
-            (kill-new branch)
-            (message "Copied Git branch: %s" branch))
-        (message "No Git branch found for this buffer"))))
+  (interactive)
+  ;; Defined at top level so the key works before magit has loaded; the magit
+  ;; path is taken only once it has.
+  (let* ((git-root (and (fboundp 'magit-toplevel) (magit-toplevel)))
+         (branch
+          (cond
+           ;; Magit knows the branch already
+           (git-root
+            (magit-get-current-branch))
+           ;; Fallback to VC – works only when VC is enabled for git
+           ((and buffer-file-name
+                 (vc-git-root (buffer-file-name)))
+            (car (vc-git-branches)))
+           (t nil))))
+    (if (and branch (stringp branch) (not (string-empty-p branch)))
+        (progn
+          (kill-new branch)
+          (message "Copied Git branch: %s" branch))
+      (message "No Git branch found for this buffer"))))
 
-  ;; Optional keybinding (feel free to change the prefix)
-  (map! :leader
-        :desc "Copy current Git branch" "g y" #'my/copy-git-branch-name))
+;; Bound outside `after! magit': inside it, the binding only lands once magit
+;; loads, so until then Doom's own `g y' (+vc/browse-at-remote-kill) wins.
+(map! :leader
+      :desc "Copy current Git branch" "g y" #'my/copy-git-branch-name)
 
 ;; -------------------------------------------------------------------
 ;;  Auto‑populate Forge PR title with the last commit subject
