@@ -22,10 +22,20 @@
 ;; accept. For example:
 ;;
 ;; JuliaMono
-(setq doom-font (font-spec :family "JuliaMono" :size 16 :weight 'semi-light)
+(setq doom-font (font-spec :family "JuliaMono" :size 18 :weight 'light)
       doom-variable-pitch-font (font-spec :family "JuliaMono" :weight 'light :size 16)
       doom-symbol-font (font-spec :family "JuliaMono" :weight 'light)
       doom-big-font (font-spec :family "JuliaMono" :size 24))
+
+;; Frame-wide resize, one pixel of `doom-font' per press (Doom's step is 2).
+;; Doom binds these in normal state only (+evil-bindings.el:154), so they did
+;; nothing from insert state -- which is where every terminal lives. ghostel
+;; doesn't claim them (its `C-M-' keys are letters, `]' and `/'). `C-M--'
+;; displaces `negative-argument'; `M--' and `C--' still provide it.
+(setq doom-font-increment 1)
+(map! "C-M-=" #'doom/increase-font-size
+      "C-M--" #'doom/decrease-font-size
+      "C-M-0" #'doom/reset-font-size)
 
 ;; ;; JetBrainsMono Nerd Font
 ;; (setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 16 :weight 'semi-light)
@@ -852,9 +862,12 @@ if Magit is disabled."
 
 ;; Kitty renders this TUI in JetBrainsMono and it reads better there. Only the
 ;; terminal moves -- `ghostel-default' is remapped over `default' per buffer
-;; (ghostel.el:5157), so the rest of Emacs stays on JuliaMono. :height 140 is
-;; kitty's `font_size 14.0'. Kitty's `font_features' (+zero +ss20 +onum +cv06)
-;; have no Emacs equivalent, so the fine glyph detail still differs.
+;; (ghostel.el:5157), so the rest of Emacs stays on JuliaMono. Kitty's
+;; `font_features' (+zero +ss20 +onum +cv06) have no Emacs equivalent, so the
+;; fine glyph detail still differs.
+;;
+;; The height is an integer on purpose: absolute, so terminals stay at kitty's
+;; `font_size 14.0' whatever `doom-font' or `C-M-=' do to the rest of Emacs.
 (after! ghostel
   (set-face-attribute 'ghostel-default nil
                       :family "JetBrainsMono Nerd Font"
