@@ -22,10 +22,10 @@
 ;; accept. For example:
 ;;
 ;; JuliaMono
-(setq doom-font (font-spec :family "JuliaMono" :size 18 :weight 'light)
-      doom-variable-pitch-font (font-spec :family "JuliaMono" :weight 'light :size 16)
-      doom-symbol-font (font-spec :family "JuliaMono" :weight 'light)
-      doom-big-font (font-spec :family "JuliaMono" :size 24))
+;; (setq doom-font (font-spec :family "JuliaMono" :size 14 :weight 'regular)
+;;       doom-variable-pitch-font (font-spec :family "JuliaMono" :weight 'light :size 14)
+;;       doom-symbol-font (font-spec :family "JuliaMono" :weight 'light)
+;;       doom-big-font (font-spec :family "JuliaMono" :size 24))
 
 ;; Frame-wide resize, one pixel of `doom-font' per press (Doom's step is 2).
 ;; Doom binds these in normal state only (+evil-bindings.el:154), so they did
@@ -38,10 +38,10 @@
       "C-M-0" #'doom/reset-font-size)
 
 ;; ;; JetBrainsMono Nerd Font
-;; (setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 16 :weight 'semi-light)
-;;       doom-variable-pitch-font (font-spec :family "JetBrainsMono Nerd Font" :weight 'light :size 16)
-;;       doom-symbol-font (font-spec :family "JetBrainsMono Nerd Font" :weight 'light)
-;;       doom-big-font (font-spec :family "JetBrainsMono Nerd Font" :size 24))
+(setq doom-font (font-spec :family "JetBrainsMono Nerd Font" :size 14 :weight 'semi-light)
+      doom-variable-pitch-font (font-spec :family "JetBrainsMono Nerd Font" :weight 'light :size 14)
+      doom-symbol-font (font-spec :family "JetBrainsMono Nerd Font" :weight 'light)
+      doom-big-font (font-spec :family "JetBrainsMono Nerd Font" :size 24))
 
 (defvar serif-preserve-default-list nil
   "A list holding the faces that preserve the default family and
