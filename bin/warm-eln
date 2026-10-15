@@ -1,0 +1,14 @@
+#!/bin/zsh
+# macOS checks each new native-compiled (.eln) library the first time it is
+# loaded, which freezes Emacs for seconds after `doom sync' rebuilds them.
+# Open every .eln once in throwaway processes so Emacs never pays that cost.
+# Only dlopen runs here; no Lisp code is executed.
+dir=${1:-$HOME/.config/emacs/.local/cache/eln}
+find "$dir" -name '*.eln' -print0 | xargs -0 -n 50 -P 8 python3 -I -c '
+import ctypes, sys
+for path in sys.argv[1:]:
+    try:
+        ctypes.CDLL(path, mode=ctypes.RTLD_LOCAL)
+    except OSError:
+        pass
+'
