@@ -515,6 +515,13 @@ Works for `evil-window-split' and `evil-window-vsplit'."
 (after! lsp-javascript
   (setq lsp-clients-typescript-max-ts-server-memory 3072))
 
+;; TypeScript 7 ships no tsserver, which ts-ls needs (lsp-mode#5099), and its
+;; own language server can't start under lsp-mode yet (lsp-mode#5081).
+(after! lsp-javascript
+  (lsp-dependency 'typescript
+                  '(:system "tsserver")
+                  '(:npm :package "typescript@6" :path "tsserver")))
+
 (add-hook 'lsp-mode-hook #'lsp-headerline-breadcrumb-mode)
 
 (add-to-list 'lsp-language-id-configuration '(".*\\.scss$" . "css"))
